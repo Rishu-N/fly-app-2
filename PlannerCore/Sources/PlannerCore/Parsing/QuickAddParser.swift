@@ -76,7 +76,6 @@ public struct QuickAddParser: Sendable {
                 dayLabel = label
                 consumed.insert(i)
                 if offset.usedNext { consumed.insert(i + 1); i += 1 }
-                if lower == "tonight", startClock == nil { startClock = nil }
                 i += 1
                 continue
             }
@@ -153,14 +152,38 @@ public struct QuickAddParser: Sendable {
         var chips: [QuickAddResult.Chip] = []
         if let dayLabel { chips.append(.day(dayLabel)) }
 
+        // "tonight 8" means 8 pm.
+        if dayLabel == "Tonight", var clock = startClock, clock.meridiem == nil, !clock.explicit24h, (1...11).contains(clock.hour) {
+            clock.meridiem = .pm
+            startClock = clock
+        }
+
         var start: Date?
         if let startClock {
-            start = resolve(startClock, on: baseDay, now: now, preferFuture: dayOffset == nil)
+            start = resolve(startClock, on: baseDay, now: now, preferFuture: (dayOffset ?? 0) == 0)
         }
         if let s = start, let endClock, let startClock {
-            var e = calendar.date(bySettingHour: endClock.hour24(defaultingFrom: startClock), minute: endClock.minute, second: 0, of: calendar.startOfDay(for: s)) ?? s
-            if e <= s { e = calendar.date(byAdding: .day, value: 1, to: e) ?? e }
-            duration = max(1, Int((e.timeIntervalSince(s) / 60).rounded()))
+            // End = the first matching clock time strictly after the start (handles "9-9:15"
+            // typed in the evening, "11-1pm", "22:00-01:00").
+            let explicit = endClock.meridiem != nil || endClock.explicit24h || startClock.meridiem != nil
+            let hours: [Int]
+            if explicit {
+                hours = [endClock.hour24(defaultingFrom: startClock)]
+            } else {
+                let h = endClock.hour % 12
+                hours = [h, h + 12]
+            }
+            let startDay = calendar.startOfDay(for: s)
+            var candidates: [Date] = []
+            for offset in 0...1 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else { continue }
+                for hour in hours {
+                    if let d = calendar.date(bySettingHour: hour, minute: endClock.minute, second: 0, of: day), d > s { candidates.append(d) }
+                }
+            }
+            if let e = candidates.min() {
+                duration = min(720, max(1, Int((e.timeIntervalSince(s) / 60).rounded())))
+            }
         }
         if let start { chips.append(.time(start)) }
         if let duration { chips.append(.duration(duration)) }

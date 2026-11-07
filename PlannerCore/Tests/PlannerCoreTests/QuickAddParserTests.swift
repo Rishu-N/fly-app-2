@@ -73,3 +73,26 @@ final class QuickAddParserTests: XCTestCase {
         XCTAssertEqual(r.durationMinutes, 60)
     }
 }
+
+final class QuickAddRegressionTests: XCTestCase {
+    let parser = QuickAddParser(calendar: TestClock.calendar)
+
+    func testAmbiguousRangeAfterItsMorningTimeStaysShort() {
+        let r = parser.parse("standup 9-9:15", now: TestClock.at(10))
+        XCTAssertEqual(r.start, TestClock.at(21))
+        XCTAssertEqual(r.durationMinutes, 15)
+        let f = parser.parse("focus from 9 to 11", now: TestClock.at(13))
+        XCTAssertEqual(f.durationMinutes, 120)
+    }
+
+    func testTonightMeansEvening() {
+        XCTAssertEqual(parser.parse("movie tonight 8", now: TestClock.at(9)).start, TestClock.at(20))
+        XCTAssertEqual(parser.parse("call today 6", now: TestClock.at(13)).start, TestClock.at(18))
+    }
+
+    func testOvernightRange() {
+        let r = parser.parse("deploy 22:00-01:00", now: TestClock.at(9))
+        XCTAssertEqual(r.start, TestClock.at(22))
+        XCTAssertEqual(r.durationMinutes, 180)
+    }
+}

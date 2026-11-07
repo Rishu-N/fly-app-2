@@ -59,7 +59,7 @@ public enum TaskTransitions {
             t.status = .skipped
 
         case (.extend(let minutes), .running), (.extend(let minutes), .paused):
-            t.session?.extend(by: TimeInterval(max(1, minutes)) * 60)
+            t.session?.extend(by: TimeInterval(max(1, minutes)) * 60, at: now)
 
         case (.reopen, .completed), (.reopen, .cancelled), (.reopen, .skipped):
             t.status = .planned

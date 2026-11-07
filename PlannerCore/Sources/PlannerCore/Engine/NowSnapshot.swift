@@ -84,7 +84,7 @@ public enum ScheduleEngine {
             let after: Bool
             switch focus {
             case .gap(let next): after = task.start >= next.start
-            case .active, .due: after = task.start >= anchorStart && task.end > now
+            case .active, .due: after = task.end > now
             case .clear: after = task.start > now
             }
             if after {

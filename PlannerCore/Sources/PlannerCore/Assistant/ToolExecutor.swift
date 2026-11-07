@@ -232,18 +232,34 @@ public struct ToolExecutor {
         return JSONValue.object(result).serialized()
     }
 
-    /// Applies the selected items of a proposal. Returns (undo entry id, created series ids, count).
-    public func apply(_ proposal: Proposal) -> (undoID: UUID?, series: [UUID], count: Int) {
+    /// Applies the selected items of a proposal against the *current* store (plan fields only,
+    /// so a timer can never be started, stopped or reset by the assistant). Moves/removals of a
+    /// task that started or finished since it was proposed are skipped and reported.
+    /// Returns (undo entry id, created series ids, applied count, skipped titles).
+    public func apply(_ proposal: Proposal) -> (undoID: UUID?, series: [UUID], count: Int, skipped: [String]) {
         var upserts: [PlanTask] = []
         var deletions: [UUID] = []
         var seriesIDs: [UUID] = []
+        var skipped: [String] = []
         var count = 0
         for item in proposal.items where item.isSelected {
+            let current = item.before.flatMap { store.task($0.id) }
             switch item.kind {
-            case .add, .move, .edit:
+            case .add:
                 if let after = item.after { upserts.append(after); count += 1 }
+            case .move, .edit:
+                guard let after = item.after else { continue }
+                guard let current else { skipped.append(after.title); continue }
+                if item.kind == .move, current.status != .planned { skipped.append(current.title); continue }
+                upserts.append(after)
+                count += 1
             case .remove:
-                if let before = item.before { deletions.append(before.id); count += 1 }
+                guard let current, !current.status.isActive else {
+                    if let t = item.before { skipped.append(t.title) }
+                    continue
+                }
+                deletions.append(current.id)
+                count += 1
             case .addRoutine:
                 if let series = item.series {
                     store.addSeries(series, now: now)
@@ -253,13 +269,13 @@ public struct ToolExecutor {
             }
         }
         let label = proposal.summary.isEmpty ? "Assistant changes" : proposal.summary
-        let changes = ChangeSet(label: label, upserts: upserts, deletions: deletions)
+        let changes = ChangeSet(label: label, upserts: upserts, deletions: deletions, mode: .plan)
         var undoID: UUID?
         if !changes.isEmpty {
             store.apply(changes, now: now)
-            undoID = store.undoStack.last?.id
+            undoID = store.lastUndoID
         }
-        return (undoID, seriesIDs, count)
+        return (undoID, seriesIDs, count, skipped)
     }
 
     // MARK: Helpers

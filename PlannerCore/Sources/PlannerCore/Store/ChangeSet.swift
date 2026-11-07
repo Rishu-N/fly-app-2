@@ -3,14 +3,22 @@ import Foundation
 /// An atomic, undoable batch of edits. Every multi-task operation (assistant proposals,
 /// "shift rest of day", bulk delete) goes through one of these so a single Undo reverts it.
 public struct ChangeSet: Equatable, Sendable {
+    /// `.plan`: upserts of existing tasks only change plan fields (title, time, duration,
+    /// category, reminder, notes, checklist) — status and timer come from the live record, so a
+    /// stale copy can never resurrect or kill a timer. `.full`: replace whole records (undo of a
+    /// timer action, restoring a deleted task).
+    public enum Mode: Sendable, Equatable { case plan, full }
+
     public var label: String
     public var upserts: [PlanTask]
     public var deletions: [UUID]
+    public var mode: Mode
 
-    public init(label: String, upserts: [PlanTask] = [], deletions: [UUID] = []) {
+    public init(label: String, upserts: [PlanTask] = [], deletions: [UUID] = [], mode: Mode = .plan) {
         self.label = label
         self.upserts = upserts
         self.deletions = deletions
+        self.mode = mode
     }
 
     public var isEmpty: Bool { upserts.isEmpty && deletions.isEmpty }

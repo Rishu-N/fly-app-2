@@ -199,7 +199,12 @@ public final class AssistantSession {
             p.createdSeriesIDs = result.series
         }
         let titles = proposal.items.filter(\.isSelected).compactMap { ($0.after ?? $0.before)?.title }.prefix(6)
-        pendingNotes.append("User applied \(proposalID) (\(result.count) of \(proposal.items.count) changes: \(titles.joined(separator: ", "))).")
+        var note = "User applied \(proposalID) (\(result.count) of \(proposal.items.count) changes: \(titles.joined(separator: ", ")))."
+        if !result.skipped.isEmpty {
+            note += " Skipped because they had already started or changed: \(result.skipped.joined(separator: ", "))."
+            items.append(ChatItem(.notice("Skipped \(result.skipped.joined(separator: ", ")) — already started or changed.")))
+        }
+        pendingNotes.append(note)
         changed()
     }
 
@@ -413,11 +418,24 @@ public final class AssistantSession {
             tomorrowRows = store.tasks(on: today.adding(days: 1, calendar: store.calendar)).map { executor.row(for: $0, refs: &refs) }
         }
         let activeRow = store.activeTask.map { executor.row(for: $0, refs: &refs) }
-        let system = SystemPrompt.build(.init(
+        let context = SystemPrompt.context(.init(
             now: now, calendar: store.calendar, uses24HourClock: env.uses24HourClock(), settings: settings,
             activeTaskRow: activeRow, todayRows: todayRows, tomorrowRows: tomorrowRows
         ))
-        let messages = [ChatMessage.system(system)] + Self.compact(wire, keepTurns: keepTurns)
+        let history = Self.compact(wire, keepTurns: keepTurns)
+        var messages: [ChatMessage]
+        if endpoint.isOpenAI {
+            // Static system prompt + tools + history form a stable, cacheable prefix; the
+            // changing CONTEXT goes right before the latest user turn.
+            let lastUser = history.lastIndex(where: { $0.role == .user }) ?? history.endIndex
+            messages = [ChatMessage.system(SystemPrompt.staticPart)]
+            messages += history[..<lastUser]
+            messages.append(.system(context))
+            messages += history[lastUser...]
+        } else {
+            // Many local servers only accept one leading system message.
+            messages = [ChatMessage.system(SystemPrompt.staticPart + "\n\n" + context)] + history
+        }
         let dropped = droppedParams[model] ?? []
         let reasoning = Self.isReasoningModel(model) && endpoint.isOpenAI && !dropped.contains("reasoning_effort")
         return ChatRequest(

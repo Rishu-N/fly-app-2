@@ -74,8 +74,10 @@ public struct TimerSession: Codable, Hashable, Sendable {
     /// The `start...end` range to feed `Text(timerInterval:)` / `ProgressView(timerInterval:)`
     /// so the system renders the countdown without any app-driven updates.
     /// The lower bound is shifted by paused time so progress views stay correct.
+    /// Uses completed pauses only, so the range is identical at any `now` while paused (pair it
+    /// with `pauseTime: pausedAt` or a static label while paused).
     public func displayInterval(at now: Date) -> ClosedRange<Date> {
-        let lower = startedAt.addingTimeInterval(pausedDuration(at: now))
+        let lower = startedAt.addingTimeInterval(pausedTotal)
         let upper = max(lower, lower.addingTimeInterval(targetDuration))
         return lower...upper
     }
@@ -93,9 +95,15 @@ public struct TimerSession: Codable, Hashable, Sendable {
         self.pausedAt = nil
     }
 
-    public mutating func extend(by seconds: TimeInterval) {
+    /// Adds time. In overtime, "+5" means five more minutes *from now* (overtime is absorbed
+    /// into the target), not five minutes off the debt.
+    public mutating func extend(by seconds: TimeInterval, at now: Date) {
         guard endedAt == nil, seconds > 0 else { return }
-        targetDuration += seconds
+        if remaining(at: now) < 0 {
+            targetDuration = elapsed(at: now) + seconds
+        } else {
+            targetDuration += seconds
+        }
         extensions += 1
     }
 

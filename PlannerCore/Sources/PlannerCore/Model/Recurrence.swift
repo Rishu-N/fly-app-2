@@ -116,7 +116,9 @@ public struct TaskSeries: Identifiable, Codable, Hashable, Sendable {
         let base = day.startDate(calendar: calendar)
         let start = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
         return PlanTask(
-            id: UUID(),
+            // Deterministic per (series, day): edits patch occurrences in place and two devices
+            // / two launches can never materialise duplicates.
+            id: StableHash.uuid("\(id.uuidString)/\(day)"),
             title: title,
             notes: notes,
             start: start,

@@ -13,8 +13,9 @@ public struct NotificationSpec: Hashable, Sendable, Identifiable {
         case overrunNudge
     }
 
-    /// Stable, content-addressed identifier: changes whenever the fire date changes, so the
-    /// diff naturally replaces stale requests.
+    /// Stable, content-addressed identifier: `<kind>.<task>.<epoch>.<content hash>`. It changes
+    /// when the fire time *or* the visible content changes (so a rename updates the pending
+    /// request) and never depends on `now` (so resyncs don't create duplicates).
     public var id: String
     public var kind: Kind
     public var taskID: UUID
@@ -57,29 +58,17 @@ public enum NotificationPlanner {
         if let active = tasks.first(where: { $0.status == .running }), let session = active.session, settings.notifyWhenTimerEnds {
             let end = session.projectedEnd(at: now)
             if end > now {
-                specs.append(NotificationSpec(
-                    id: "timer.\(active.id.uuidString).\(Int(end.timeIntervalSince1970))",
-                    kind: .timerEnded,
-                    taskID: active.id,
-                    fireDate: end,
-                    title: "Time's up · \(active.title)",
-                    body: "Mark it done, or add 5 minutes.",
-                    threadID: "day-\(DayKey(end, calendar: calendar))",
-                    timeSensitive: settings.timeSensitiveReminders
-                ))
+                specs.append(make(.timerEnded, "timer", task: active, epochDate: end, fire: end,
+                                  title: "Time's up · \(active.title)",
+                                  body: "Mark it done, or add 5 minutes.",
+                                  thread: end, timeSensitive: settings.timeSensitiveReminders, calendar: calendar))
             }
             let nudge = end.addingTimeInterval(10 * 60)
             if nudge > now {
-                specs.append(NotificationSpec(
-                    id: "nudge.\(active.id.uuidString).\(Int(nudge.timeIntervalSince1970))",
-                    kind: .overrunNudge,
-                    taskID: active.id,
-                    fireDate: nudge,
-                    title: "Still on \(active.title)?",
-                    body: "You're 10 min over. Wrap up or extend.",
-                    threadID: "day-\(DayKey(nudge, calendar: calendar))",
-                    timeSensitive: false
-                ))
+                specs.append(make(.overrunNudge, "nudge", task: active, epochDate: nudge, fire: nudge,
+                                  title: "Still on \(active.title)?",
+                                  body: "You're 10 min over. Wrap up or extend.",
+                                  thread: nudge, timeSensitive: false, calendar: calendar))
             }
         }
 
@@ -93,38 +82,63 @@ public enum NotificationPlanner {
         for task in candidates {
             guard leadCount < reminderBudget else { break }
             guard let lead = task.effectiveLeadMinutes(defaultLead: settings.defaultLeadMinutes) else { continue }
-            var fire = task.start.addingTimeInterval(-TimeInterval(lead) * 60)
-            // If we're already inside the lead window, remind shortly (but never in the past).
-            if fire <= now {
-                guard task.start.timeIntervalSince(now) > 30 else { continue }
-                fire = now.addingTimeInterval(1)
-            }
+            let fire = task.start.addingTimeInterval(-TimeInterval(lead) * 60)
             let window = "\(timeFormatter(task.start))–\(timeFormatter(task.end))"
-            let title: String = lead == 0 ? "Now · \(task.title)" : "\(task.title) in \(lead) min"
             let body = lead == 0
                 ? "\(window) · \(formatDuration(task.durationMinutes)). Tap Start when you begin."
                 : "\(window) · \(formatDuration(task.durationMinutes)). Start early — the timer runs the full block."
-            specs.append(NotificationSpec(
-                id: "lead.\(task.id.uuidString).\(Int(fire.timeIntervalSince1970))",
-                kind: .leadReminder,
-                taskID: task.id,
-                fireDate: fire,
-                title: title,
-                body: body,
-                threadID: "day-\(DayKey(task.start, calendar: calendar))",
-                timeSensitive: settings.timeSensitiveReminders
-            ))
-            leadCount += 1
+            if fire > now {
+                let title: String = lead == 0 ? "Now · \(task.title)" : "\(task.title) in \(lead) min"
+                specs.append(make(.leadReminder, "lead", task: task, epochDate: task.start, fire: fire,
+                                  title: title, body: body, thread: task.start,
+                                  timeSensitive: settings.timeSensitiveReminders, calendar: calendar))
+                leadCount += 1
+            } else if now.timeIntervalSince(task.updatedAt) < catchUpWindow, task.start.timeIntervalSince(now) > 30 {
+                // Created/edited inside its lead window: one catch-up with the real minutes left.
+                // Its id has no content hash, so later resyncs (and the delivered-filter) never
+                // repeat it.
+                let minutes = Int((task.start.timeIntervalSince(now) / 60).rounded(.up))
+                var spec = make(.leadReminder, "lead", task: task, epochDate: task.start, fire: now.addingTimeInterval(1),
+                                title: "\(task.title) in \(minutes) min", body: body, thread: task.start,
+                                timeSensitive: settings.timeSensitiveReminders, calendar: calendar)
+                spec.id = "lead.\(task.id.uuidString).\(Int(task.start.timeIntervalSince1970)).catchup"
+                specs.append(spec)
+                leadCount += 1
+            }
         }
         return specs
     }
 
-    /// Minimal diff between desired specs and currently pending identifiers.
-    public static func diff(desired: [NotificationSpec], pendingIDs: Set<String>, ownedPrefixes: [String] = ["lead.", "timer.", "nudge."])
-        -> (add: [NotificationSpec], removeIDs: [String])
-    {
+    /// Tasks edited this recently inside their lead window get one catch-up reminder.
+    public static let catchUpWindow: TimeInterval = 180
+
+    private static func make(
+        _ kind: NotificationSpec.Kind, _ prefix: String, task: PlanTask, epochDate: Date, fire: Date,
+        title: String, body: String, thread: Date, timeSensitive: Bool, calendar: Calendar
+    ) -> NotificationSpec {
+        let fingerprint = StableHash.short("\(title)|\(body)|\(timeSensitive)|\(Int(fire.timeIntervalSince1970))")
+        return NotificationSpec(
+            id: "\(prefix).\(task.id.uuidString).\(Int(epochDate.timeIntervalSince1970)).\(fingerprint)",
+            kind: kind,
+            taskID: task.id,
+            fireDate: fire,
+            title: title,
+            body: body,
+            threadID: "day-\(DayKey(thread, calendar: calendar))",
+            timeSensitive: timeSensitive
+        )
+    }
+
+    /// Minimal diff between desired specs and currently pending identifiers. Anything already
+    /// delivered is never re-added.
+    public static func diff(
+        desired: [NotificationSpec],
+        pendingIDs: Set<String>,
+        deliveredIDs: Set<String> = [],
+        ownedPrefixes: [String] = ["lead.", "timer.", "nudge."]
+    ) -> (add: [NotificationSpec], removeIDs: [String]) {
         let desiredIDs = Set(desired.map(\.id))
-        let add = desired.filter { !pendingIDs.contains($0.id) }
+        let add = desired.filter { !pendingIDs.contains($0.id) && !deliveredIDs.contains($0.id) }
         let remove = pendingIDs.filter { id in
             !desiredIDs.contains(id) && ownedPrefixes.contains(where: { id.hasPrefix($0) })
         }

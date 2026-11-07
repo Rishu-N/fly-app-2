@@ -50,7 +50,13 @@ public enum SystemPrompt {
         }
     }
 
+    /// Static prompt + context in one string (used by servers that accept a single system message).
     public static func build(_ ctx: Context) -> String {
+        staticPart + "\n\n" + context(ctx)
+    }
+
+    /// The dynamic CONTEXT block only.
+    public static func context(_ ctx: Context) -> String {
         let codec = LocalTimeCodec(calendar: ctx.calendar)
         let tz = ctx.calendar.timeZone
         let offsetSeconds = tz.secondsFromGMT(for: ctx.now)
@@ -72,6 +78,6 @@ public enum SystemPrompt {
             lines.append("Tomorrow:")
             lines.append(contentsOf: tomorrow.isEmpty ? ["(nothing scheduled)"] : tomorrow)
         }
-        return staticPart + "\n\n" + lines.joined(separator: "\n")
+        return lines.joined(separator: "\n")
     }
 }

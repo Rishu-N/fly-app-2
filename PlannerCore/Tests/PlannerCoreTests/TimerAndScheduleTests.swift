@@ -44,9 +44,14 @@ final class TimerSessionTests: XCTestCase {
         var t = try TaskTransitions.apply(.start, to: task("A", 10, 0, minutes: 30), at: TestClock.at(10, 0))
         XCTAssertEqual(t.phase(at: TestClock.at(10, 35)), .overrun)
         XCTAssertEqual(t.session!.remaining(at: TestClock.at(10, 35)), -5 * 60, accuracy: 0.001)
+        // In overtime, +10 means ten more minutes from now (not 10 off the 5-minute debt).
         t = try TaskTransitions.apply(.extend(minutes: 10), to: t, at: TestClock.at(10, 35))
         XCTAssertEqual(t.phase(at: TestClock.at(10, 35)), .running)
-        XCTAssertEqual(t.session!.projectedEnd(at: TestClock.at(10, 35)), TestClock.at(10, 40))
+        XCTAssertEqual(t.session!.projectedEnd(at: TestClock.at(10, 35)), TestClock.at(10, 45))
+        // Before zero it simply adds.
+        var u = try TaskTransitions.apply(.start, to: task("B", 11, 0, minutes: 30), at: TestClock.at(11))
+        u = try TaskTransitions.apply(.extend(minutes: 5), to: u, at: TestClock.at(11, 10))
+        XCTAssertEqual(u.session!.projectedEnd(at: TestClock.at(11, 10)), TestClock.at(11, 35))
     }
 
     func testInvalidTransitionsThrow() {
@@ -179,11 +184,29 @@ final class NotificationPlannerTests: XCTestCase {
         XCTAssertEqual(specs[1].fireDate, TestClock.at(10, 33))
     }
 
-    func testInsideLeadWindowFiresSoon() {
-        let t = task("Soon", 9, 3, minutes: 30)
-        let specs = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9), calendar: TestClock.calendar, timeFormatter: { _ in "" })
-        XCTAssertEqual(specs.count, 1)
-        XCTAssertEqual(specs[0].fireDate.timeIntervalSince(TestClock.at(9)), 1, accuracy: 0.01)
+    func testInsideLeadWindowCatchUpOnlyForFreshEditsAndOnlyOnce() {
+        var t = task("Soon", 9, 3, minutes: 30)
+        // Old task inside its window: its reminder already fired → nothing new.
+        XCTAssertTrue(NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9), calendar: TestClock.calendar, timeFormatter: { _ in "" }).isEmpty)
+        // Just created: one catch-up with the real minutes left.
+        t.updatedAt = TestClock.at(8, 59)
+        let first = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9), calendar: TestClock.calendar, timeFormatter: { _ in "" })
+        XCTAssertEqual(first.count, 1)
+        XCTAssertEqual(first[0].title, "Soon in 3 min")
+        // A resync a minute later produces the same id (no duplicate) and, once delivered, nothing.
+        let second = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9, 1), calendar: TestClock.calendar, timeFormatter: { _ in "" })
+        XCTAssertEqual(second.map(\.id), first.map(\.id))
+        XCTAssertTrue(NotificationPlanner.diff(desired: second, pendingIDs: [], deliveredIDs: Set(first.map(\.id))).add.isEmpty)
+    }
+
+    func testIDsAreStableAcrossNowAndChangeWithContent() {
+        var t = task("Write", 11)
+        let a = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9), calendar: TestClock.calendar, timeFormatter: { _ in "x" })
+        let b = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9, 30), calendar: TestClock.calendar, timeFormatter: { _ in "x" })
+        XCTAssertEqual(a.map(\.id), b.map(\.id))
+        t.title = "Write report"
+        let c = NotificationPlanner.plan(tasks: [t], settings: PlannerSettings(), now: TestClock.at(9), calendar: TestClock.calendar, timeFormatter: { _ in "x" })
+        XCTAssertNotEqual(a.map(\.id), c.map(\.id))
     }
 
     func testDiffOnlyTouchesOwnedChangedIDs() {

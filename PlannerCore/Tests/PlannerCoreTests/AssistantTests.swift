@@ -109,7 +109,10 @@ final class AssistantSessionTests: XCTestCase {
         await waitUntilIdle(session)
 
         XCTAssertEqual(transport.requests.count, 2)
-        XCTAssertTrue(transport.requests[0].messages[0].content!.contains("t1|2026-11-07T10:00|15|Standup|meeting|upcoming"))
+        let first = transport.requests[0].messages
+        XCTAssertEqual(first[0].content, SystemPrompt.staticPart, "system prompt must stay static for prompt caching")
+        XCTAssertTrue(first.contains { $0.role == .system && ($0.content ?? "").contains("t1|2026-11-07T10:00|15|Standup|meeting|upcoming") })
+        XCTAssertEqual(first.last?.role, .user)
         // Second request must carry the tool result for list_tasks.
         XCTAssertEqual(transport.requests[1].messages.last?.role, .tool)
 

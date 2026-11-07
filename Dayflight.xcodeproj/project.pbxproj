@@ -1,0 +1,556 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		26E77BC16EA13A5960288FE1 /* PlannerCore in Frameworks */ = {isa = PBXBuildFile; productRef = FE15B8B49F95F975CBD81F9E /* PlannerCore */; };
+		F100120264BA6A9858202378 /* PlannerCore in Frameworks */ = {isa = PBXBuildFile; productRef = B0BC7D88CB2B5377527EB733 /* PlannerCore */; };
+		26825853EFC335408992EAE8 /* DayflightWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2C3577E7A71C1596324CE943 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A303B9D37AE41E79FFDCC92 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3066B83005404F5DBE5896C4;
+			remoteInfo = DayflightWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		426C536933653405B5EC2C24 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				26825853EFC335408992EAE8 /* DayflightWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1DE35546B3C5D3B1123F11DE /* Dayflight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dayflight.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayflightWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E01BB4E3FC0AF019038DE36E /* PlannerCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = PlannerCore; sourceTree = "<group>"; };
+		2AB56E7278C61D51303E6D6F /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		94FBDCD9037B1F3F0D879002 /* Dayflight-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Dayflight-Info.plist"; sourceTree = "<group>"; };
+		B35AB08BD841CA33BFC078AB /* DayflightWidgets-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DayflightWidgets-Info.plist"; sourceTree = "<group>"; };
+		BD954D3B11BD6C91334797FE /* Dayflight.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Dayflight.entitlements; sourceTree = "<group>"; };
+		D8DC4696FF6228B8DDC32012 /* DayflightWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayflightWidgets.entitlements; sourceTree = "<group>"; };
+		4F966E1D9C4DFB017CDF7615 /* project.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = project.yml; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		3BAEFDB5742C8A98B0361858 /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App;
+			sourceTree = "<group>";
+		};
+		FE8FA287515AA79FCD2DC279 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		5A7A925447EFF977262CC0E3 /* Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CEE488E0D8293FEA4A6E2E66 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				26E77BC16EA13A5960288FE1 /* PlannerCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		30342567B6962E4D66EC8FA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F100120264BA6A9858202378 /* PlannerCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		49DFD2B787B95593DC760EC2 = {
+			isa = PBXGroup;
+			children = (
+				3BAEFDB5742C8A98B0361858 /* App */,
+				FE8FA287515AA79FCD2DC279 /* Shared */,
+				5A7A925447EFF977262CC0E3 /* Widgets */,
+				E01BB4E3FC0AF019038DE36E /* PlannerCore */,
+				1D3E89D85689D78EE59CDDE6 /* Config */,
+				4F966E1D9C4DFB017CDF7615 /* project.yml */,
+				4E666605FC4A0BCFD527AF7F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1D3E89D85689D78EE59CDDE6 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2AB56E7278C61D51303E6D6F /* Base.xcconfig */,
+				94FBDCD9037B1F3F0D879002 /* Dayflight-Info.plist */,
+				B35AB08BD841CA33BFC078AB /* DayflightWidgets-Info.plist */,
+				BD954D3B11BD6C91334797FE /* Dayflight.entitlements */,
+				D8DC4696FF6228B8DDC32012 /* DayflightWidgets.entitlements */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		4E666605FC4A0BCFD527AF7F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1DE35546B3C5D3B1123F11DE /* Dayflight.app */,
+				763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4CA9196B6F1F6F215942F9BE /* Dayflight */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 21F3A7BBB252106A4FC125F3 /* Build configuration list for PBXNativeTarget "Dayflight" */;
+			buildPhases = (
+				67920F5811B1DEB0CB1420F7 /* Sources */,
+				CEE488E0D8293FEA4A6E2E66 /* Frameworks */,
+				D98E1F8FBF2D7E417BB7C0C6 /* Resources */,
+				426C536933653405B5EC2C24 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EDDEA0A5A76C2E84E8DF46E1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3BAEFDB5742C8A98B0361858 /* App */,
+				FE8FA287515AA79FCD2DC279 /* Shared */,
+			);
+			name = Dayflight;
+			packageProductDependencies = (
+				FE15B8B49F95F975CBD81F9E /* PlannerCore */,
+			);
+			productName = Dayflight;
+			productReference = 1DE35546B3C5D3B1123F11DE /* Dayflight.app */;
+			productType = "com.apple.product-type.application";
+		};
+		3066B83005404F5DBE5896C4 /* DayflightWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89845F8AACFE9CAA4FB53E1A /* Build configuration list for PBXNativeTarget "DayflightWidgets" */;
+			buildPhases = (
+				76CD3C86F8D11319438D1A2C /* Sources */,
+				30342567B6962E4D66EC8FA4 /* Frameworks */,
+				41BACF6A0B648622B01E352C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5A7A925447EFF977262CC0E3 /* Widgets */,
+				FE8FA287515AA79FCD2DC279 /* Shared */,
+			);
+			name = DayflightWidgets;
+			packageProductDependencies = (
+				B0BC7D88CB2B5377527EB733 /* PlannerCore */,
+			);
+			productName = DayflightWidgets;
+			productReference = 763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1A303B9D37AE41E79FFDCC92 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					4CA9196B6F1F6F215942F9BE = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					3066B83005404F5DBE5896C4 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 4F468B8E28FCA89A08D4912E /* Build configuration list for PBXProject "Dayflight" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 49DFD2B787B95593DC760EC2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				329A63EFD8C92F31640F5913 /* XCLocalSwiftPackageReference "PlannerCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4E666605FC4A0BCFD527AF7F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA9196B6F1F6F215942F9BE /* Dayflight */,
+				3066B83005404F5DBE5896C4 /* DayflightWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D98E1F8FBF2D7E417BB7C0C6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		41BACF6A0B648622B01E352C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		67920F5811B1DEB0CB1420F7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		76CD3C86F8D11319438D1A2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EDDEA0A5A76C2E84E8DF46E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3066B83005404F5DBE5896C4 /* DayflightWidgets */;
+			targetProxy = 2C3577E7A71C1596324CE943 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5FB380CBA365C94CA8D4438F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F7E274094F56467C196E3316 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C2ADC55D3B61F50C47449C7D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Dayflight.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Dayflight-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Dayflight;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DAYFLIGHT_APP";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2101061C65DD4010AAF1CCAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Dayflight.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Dayflight-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Dayflight;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DAYFLIGHT_APP";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AF3DBE6B707114A3F3554469 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/DayflightWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DayflightWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Dayflight;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D5B64FEA8208E6A589372623 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/DayflightWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DayflightWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Dayflight;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4F468B8E28FCA89A08D4912E /* Build configuration list for PBXProject "Dayflight" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FB380CBA365C94CA8D4438F /* Debug */,
+				F7E274094F56467C196E3316 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		21F3A7BBB252106A4FC125F3 /* Build configuration list for PBXNativeTarget "Dayflight" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2ADC55D3B61F50C47449C7D /* Debug */,
+				2101061C65DD4010AAF1CCAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		89845F8AACFE9CAA4FB53E1A /* Build configuration list for PBXNativeTarget "DayflightWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF3DBE6B707114A3F3554469 /* Debug */,
+				D5B64FEA8208E6A589372623 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		329A63EFD8C92F31640F5913 /* XCLocalSwiftPackageReference "PlannerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = PlannerCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FE15B8B49F95F975CBD81F9E /* PlannerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PlannerCore;
+		};
+		B0BC7D88CB2B5377527EB733 /* PlannerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PlannerCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1A303B9D37AE41E79FFDCC92 /* Project object */;
+}

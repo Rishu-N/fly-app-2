@@ -43,16 +43,26 @@ public actor JSONFilePersistence: PlannerPersistence {
         try ensureDirectory()
         let names = try FileManager.default.contentsOfDirectory(atPath: root.path)
         return names.compactMap { name -> MonthKey? in
-            guard name.hasPrefix("tasks-"), name.hasSuffix(".json") else { return nil }
+            guard name.hasPrefix("tasks-"), name.hasSuffix(".json"), !name.contains(".corrupt-") else { return nil }
             return MonthKey(string: String(name.dropFirst(6).dropLast(5)))
         }.sorted()
     }
 
+    /// Decodes per record: one bad record is dropped instead of losing the month. If the file
+    /// itself is unreadable it is copied aside (`*.corrupt-<ts>.json`) before an empty month is
+    /// returned, so nothing on disk is ever silently destroyed.
     public func loadTasks(month: MonthKey) async throws -> [PlanTask] {
         let url = url(for: month)
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
         let data = try Data(contentsOf: url)
-        return try decoder.decode(TaskFile.self, from: data).tasks
+        do {
+            return try decoder.decode(LossyTaskFile.self, from: data).tasks.compactMap(\.value)
+        } catch {
+            let stamp = Int(Date().timeIntervalSince1970)
+            let quarantine = root.appendingPathComponent("tasks-\(month).corrupt-\(stamp).json")
+            try? FileManager.default.copyItem(at: url, to: quarantine)
+            return []
+        }
     }
 
     public func saveTasks(_ tasks: [PlanTask], month: MonthKey) async throws {
@@ -83,6 +93,17 @@ public actor JSONFilePersistence: PlannerPersistence {
         var tasks: [PlanTask]
     }
 
+    private struct LossyTaskFile: Decodable {
+        var tasks: [Lossy<PlanTask>]
+    }
+
+    private struct Lossy<T: Decodable>: Decodable {
+        var value: T?
+        init(from decoder: Decoder) throws {
+            value = try? T(from: decoder)
+        }
+    }
+
     private struct SeriesFile: Codable {
         var version: Int
         var series: [TaskSeries]
@@ -97,7 +118,7 @@ public actor InMemoryPersistence: PlannerPersistence {
 
     public init(tasks: [PlanTask] = [], calendar: Calendar = .current) {
         for task in tasks {
-            months[MonthKey(task.start, calendar: calendar), default: []].append(task)
+            months[StoragePartition.month(of: task.start), default: []].append(task)
         }
     }
 

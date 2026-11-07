@@ -15,8 +15,8 @@ enum TestClock {
     }
 }
 
-func task(_ title: String, _ h: Int, _ m: Int = 0, minutes: Int = 60, day: Int = 7, status: TaskStatus = .planned, category: TaskCategory = .focus) -> PlanTask {
-    PlanTask(title: title, start: TestClock.at(h, m, day: day), durationMinutes: minutes, category: category, status: status, createdAt: TestClock.at(6))
+func task(_ title: String, _ h: Int, _ m: Int = 0, minutes: Int = 60, day: Int = 7, month: Int = 11, status: TaskStatus = .planned, category: TaskCategory = .focus) -> PlanTask {
+    PlanTask(title: title, start: TestClock.at(h, m, day: day, month: month), durationMinutes: minutes, category: category, status: status, createdAt: TestClock.at(6))
 }
 
 @MainActor
