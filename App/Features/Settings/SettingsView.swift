@@ -80,6 +80,7 @@ struct SettingsView: View {
                 Button("Remove key", role: .destructive) {
                     KeychainStore.deleteKey()
                     self.maskedKey = nil
+                    service.keyChanged()
                 }
             } else {
                 SecureField("Paste your OpenAI API key", text: $keyInput)
@@ -90,7 +91,8 @@ struct SettingsView: View {
                     KeychainStore.saveKey(keyInput)
                     keyInput = ""
                     maskedKey = KeychainStore.maskedKey()
-                    Task { await service.refreshModels() }
+                    service.keyChanged()
+                    Task { await service.refreshModels(force: true) }
                 }
                 .disabled(keyInput.trimmingCharacters(in: .whitespaces).count < 8)
             }
@@ -115,7 +117,7 @@ struct SettingsView: View {
                         }
                     }
                     Button("Refresh list", systemImage: "arrow.clockwise") {
-                        Task { await service.refreshModels() }
+                        Task { await service.refreshModels(force: true) }
                     }
                 } label: {
                     if service.isLoadingModels { ProgressView() } else { Image(systemName: "chevron.up.chevron.down") }

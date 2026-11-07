@@ -108,7 +108,10 @@ final class NotificationScheduler {
         let trigger: UNNotificationTrigger
         if spec.kind == .leadReminder, interval > 90 {
             // Absolute instant: components carry their time zone, so travelling doesn't shift it.
-            let comps = Calendar.current.dateComponents(in: TimeZone.current, from: spec.fireDate)
+            // Only y/m/d/h/m/s — `dateComponents(in:from:)` also sets nanosecond, quarter, weekOfYear…
+            // which an exact-match calendar trigger must then match too.
+            var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: spec.fireDate)
+            comps.timeZone = TimeZone.current
             trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         } else {
             trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, interval), repeats: false)
@@ -117,7 +120,7 @@ final class NotificationScheduler {
     }
 
     /// Snooze creates a one-off reminder outside the planner-owned id space.
-    func snooze(task: PlanTask, minutes: Int = 5) {
+    func snooze(task: PlanTask, minutes: Int = 5) async {
         let content = UNMutableNotificationContent()
         content.title = task.title
         content.body = "Snoozed reminder · \(clockFormatter.string(from: task.start))–\(clockFormatter.string(from: task.end))"
@@ -127,7 +130,7 @@ final class NotificationScheduler {
         content.userInfo = ["taskID": task.id.uuidString, "kind": "snooze"]
         content.interruptionLevel = .timeSensitive
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(minutes * 60), repeats: false)
-        center.add(UNNotificationRequest(identifier: "snooze.\(task.id.uuidString)", content: content, trigger: trigger))
+        try? await center.add(UNNotificationRequest(identifier: "snooze.\(task.id.uuidString)", content: content, trigger: trigger))
     }
 
     /// A plan edit invalidates a pending snooze for that task.

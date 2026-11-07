@@ -62,11 +62,15 @@ final class AppModel: NSObject {
     /// Bumped at schedule boundaries so views that derive state from the clock re-evaluate.
     private(set) var clockTick = Date()
 
+    /// App-level bootstrap (store load + Live Activity adoption + notification permission).
+    /// Background entry points await this, not just the store, so `settle()` can see them.
+    @ObservationIgnored private var bootTask: Task<Void, Never>?
     @ObservationIgnored private var boundaryTask: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     @ObservationIgnored private var liveActivityTask: Task<Void, Never>?
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var lastActiveID: UUID?
+    @ObservationIgnored private var lastKnownToday = DayKey(Date())
 
     private override init() {
         // Cheap: no disk IO here (the store loads asynchronously in `bootstrap`).
@@ -92,7 +96,7 @@ final class AppModel: NSObject {
             MainActor.assumeIsolated { self?.dayChanged() }
         }
 
-        Task { await bootstrap() }
+        bootTask = Task { await bootstrap() }
     }
 
     private func bootstrap() async {
@@ -132,7 +136,10 @@ final class AppModel: NSObject {
         guard store.isLoaded else { return }
         store.materializeRecurrences()
         clockTick = Date()
-        selectedPlanDay = DayKey(Date(), calendar: store.calendar)
+        let today = DayKey(Date(), calendar: store.calendar)
+        // Follow "today" only if the user was looking at the old today (not browsing elsewhere).
+        if selectedPlanDay == lastKnownToday { selectedPlanDay = today }
+        lastKnownToday = today
         syncSideEffects(urgent: false)
     }
 
@@ -390,6 +397,7 @@ final class AppModel: NSObject {
         let assertion = BackgroundAssertion(name: "intent")
         defer { assertion.end() }
         await store.waitUntilLoaded()
+        await bootTask?.value // existing Live Activity adopted, notification permission known
         // Validate against the task's *current* state (the Live Activity may be stale).
         guard let id = UUID(uuidString: taskID), let task = store.task(id), task.status.isActive else {
             await settle()
@@ -450,6 +458,7 @@ extension AppModel: UNUserNotificationCenterDelegate {
         let assertion = BackgroundAssertion(name: "notification-action")
         defer { assertion.end() }
         await store.waitUntilLoaded()
+        await bootTask?.value // existing Live Activity adopted, notification permission known
         if let deepLink { open(deepLink); return }
         guard let taskID, let task = store.task(taskID) else { return }
         // Every action is checked against the task's current state.
@@ -458,7 +467,7 @@ extension AppModel: UNUserNotificationCenterDelegate {
             selectedTab = .now
             start(task)
         case NotificationScheduler.Action.snooze where task.status == .planned:
-            notifications.snooze(task: task)
+            await notifications.snooze(task: task)
         case NotificationScheduler.Action.skip where task.status == .planned:
             perform(.skip, on: task, undoable: false)
         case NotificationScheduler.Action.complete where task.status.isActive:

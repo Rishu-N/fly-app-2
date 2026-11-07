@@ -41,6 +41,8 @@ struct MiniPlayer: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
+        // Re-evaluate at schedule boundaries so the label flips from 0:00 to "+overtime".
+        let _ = model.clockTick
         if let task = model.store.activeTask, let session = task.session {
             Button {
                 model.selectedTab = .now

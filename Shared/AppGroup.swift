@@ -48,6 +48,7 @@ struct WidgetSnapshot: Codable, Equatable {
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
+        encoder.outputFormatting = [.sortedKeys] // byte-stable → stable content hash
         return try encoder.encode(self)
     }
 }

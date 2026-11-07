@@ -11,6 +11,8 @@ final class AssistantService {
     let session: AssistantSession
     private(set) var availableModels: [String] = []
     private(set) var isLoadingModels = false
+    /// Cached so views never hit the Keychain while rendering. Call `keyChanged()` after edits.
+    private(set) var hasKey = KeychainStore.loadKey() != nil
 
     @ObservationIgnored private let settingsStore: SettingsStore
     @ObservationIgnored private let notifications: NotificationScheduler
@@ -30,10 +32,6 @@ final class AssistantService {
         self.notifications = notifications
         let transport = OpenAIHTTPTransport()
         self.transport = transport
-        let transcript: AssistantTranscript? = {
-            guard let data = try? Data(contentsOf: Self.transcriptURL) else { return nil }
-            return try? JSONDecoder().decode(AssistantTranscript.self, from: data)
-        }()
         let env = AssistantEnvironment(
             transport: transport,
             apiKey: { KeychainStore.loadKey() },
@@ -43,13 +41,26 @@ final class AssistantService {
                 return !format.contains("a")
             }
         )
-        session = AssistantSession(store: store, environment: env, transcript: transcript)
+        session = AssistantSession(store: store, environment: env, transcript: nil)
         session.onTranscriptChange = { [weak self] in self?.scheduleSave() }
         session.onModelFallback = { [weak self] model in self?.settingsStore.settings.assistant.model = model }
         session.onTurnFinished = { [weak self] needsReview in self?.turnFinished(needsReview: needsReview) }
+        // Restore the conversation off the main thread.
+        let url = Self.transcriptURL
+        Task { [weak self] in
+            let transcript = await Task.detached(priority: .userInitiated) { () -> AssistantTranscript? in
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return try? JSONDecoder().decode(AssistantTranscript.self, from: data)
+            }.value
+            guard let self, let transcript, self.session.items.isEmpty, !self.session.isRunning else { return }
+            self.session.restore(transcript)
+        }
     }
 
-    var hasKey: Bool { KeychainStore.loadKey() != nil }
+    func keyChanged() {
+        hasKey = KeychainStore.loadKey() != nil
+        availableModels = []
+    }
 
     func send(_ text: String) {
         beginBackgroundWindowIfNeeded()
@@ -62,7 +73,11 @@ final class AssistantService {
     }
 
     /// Fetch `GET /models` for the picker in Settings.
-    func refreshModels() async {
+    func refreshModels(force: Bool = false) async {
+        // Cached per key; only fetched when there's a key (or a non-OpenAI server).
+        guard force || availableModels.isEmpty else { return }
+        let isOpenAI = settingsStore.settings.assistant.baseURL.contains("openai.com")
+        guard hasKey || !isOpenAI else { return }
         isLoadingModels = true
         defer { isLoadingModels = false }
         guard let endpoint = try? AssistantEndpoint(baseURLString: settingsStore.settings.assistant.baseURL, apiKey: KeychainStore.loadKey() ?? "") else { return }
@@ -101,8 +116,10 @@ final class AssistantService {
     private func beginBackgroundWindowIfNeeded() {
         guard backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "assistant-request") { [weak self] in
-            self?.session.stop()
-            self?.endBackgroundWindow()
+            MainActor.assumeIsolated {
+                self?.session.stop()
+                self?.endBackgroundWindow()
+            }
         }
     }
 

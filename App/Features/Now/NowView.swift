@@ -51,7 +51,7 @@ struct NowView: View {
                 pullArmed = false
                 model.captureSeed = ""
                 model.showCapture = true
-            } else if offset > -10 {
+            } else if offset > -10, !pullArmed {
                 pullArmed = true
             }
         }

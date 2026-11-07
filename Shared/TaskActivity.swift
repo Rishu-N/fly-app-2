@@ -71,6 +71,8 @@ struct TogglePauseTaskIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Pause or Resume Task"
     static let description = IntentDescription("Pauses or resumes the running task timer.")
 
+    static let isDiscoverable = false
+
     @Parameter(title: "Task ID") var taskID: String
 
     init() {}
@@ -88,6 +90,8 @@ struct CompleteTaskIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Complete Task"
     static let description = IntentDescription("Marks the running task as done.")
 
+    static let isDiscoverable = false
+
     @Parameter(title: "Task ID") var taskID: String
 
     init() {}
@@ -104,6 +108,8 @@ struct CompleteTaskIntent: LiveActivityIntent {
 struct ExtendTaskIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Add 5 Minutes"
     static let description = IntentDescription("Adds five minutes to the running task timer.")
+
+    static let isDiscoverable = false
 
     @Parameter(title: "Task ID") var taskID: String
 

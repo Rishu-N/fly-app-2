@@ -61,14 +61,13 @@ struct TimerDial: View {
                     .rotationEffect(.degrees(-90))
                     .scaleEffect(x: -1, y: 1) // drains clockwise like a watch hand
                     .padding(16)
-                    .animation(.linear(duration: 1), value: state.remainingFraction)
+                    // No implicit animation: a 1 s tween per 1 Hz tick would render every frame.
                 if state.overrunFraction > 0 {
                     Circle()
                         .trim(from: 0, to: state.overrunFraction)
                         .stroke(palette.warning, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .padding(32)
-                        .animation(.linear(duration: 1), value: state.overrunFraction)
                 }
             }
             VStack(spacing: 4) {

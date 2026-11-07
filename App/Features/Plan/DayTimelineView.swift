@@ -193,7 +193,7 @@ struct DayTimelineView: View {
 
     /// Greedy lane assignment for overlapping blocks: (index, laneCount) per task.
     static func assignLanes(_ tasks: [PlanTask]) -> [UUID: (index: Int, count: Int)] {
-        var result: [UUID: (Int, Int)] = [:]
+        var result: [UUID: (index: Int, count: Int)] = [:]
         var cluster: [(task: PlanTask, lane: Int)] = []
         var clusterEnd = Date.distantPast
         var laneEnds: [Date] = []

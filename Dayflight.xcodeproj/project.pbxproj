@@ -544,10 +544,12 @@
 /* Begin XCSwiftPackageProductDependency section */
 		FE15B8B49F95F975CBD81F9E /* PlannerCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 329A63EFD8C92F31640F5913 /* XCLocalSwiftPackageReference "PlannerCore" */;
 			productName = PlannerCore;
 		};
 		B0BC7D88CB2B5377527EB733 /* PlannerCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 329A63EFD8C92F31640F5913 /* XCLocalSwiftPackageReference "PlannerCore" */;
 			productName = PlannerCore;
 		};
 /* End XCSwiftPackageProductDependency section */

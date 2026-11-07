@@ -9,6 +9,8 @@ import PlannerCore
 final class LiveActivityController {
     private var current: Activity<TaskActivityAttributes>?
     private var lastState: TaskActivityAttributes.ContentState?
+    /// The user swiped this task's activity away — don't re-request it on every foreground.
+    private var dismissedTaskID: String?
 
     var isAvailable: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
@@ -31,6 +33,12 @@ final class LiveActivityController {
             return
         }
         let state = TaskActivityAttributes.ContentState(task: active, next: next, theme: theme)
+        if let current, current.content.state.taskID == state.taskID, current.activityState == .dismissed {
+            dismissedTaskID = state.taskID
+            self.current = nil
+            lastState = nil
+        }
+        guard dismissedTaskID != state.taskID else { return }
         let stale: Date? = state.isPaused ? nil : state.timerEnd
         let content = ActivityContent(state: state, staleDate: stale, relevanceScore: 100)
 
@@ -43,6 +51,9 @@ final class LiveActivityController {
         }
 
         await endCurrent(finished: nil)
+        // Another sync may have started an activity while we awaited the old one's end;
+        // requesting again would orphan one on the Lock Screen.
+        guard current == nil else { return }
         guard isAvailable else { return }
         // ActivityKit caps a Live Activity at 8 h; don't start one for a timer that can't finish.
         guard state.timerEnd.timeIntervalSinceNow < 8 * 3600 else { return }

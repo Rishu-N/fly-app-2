@@ -40,7 +40,11 @@ struct RootView: View {
         }
         .confirmationDialog(
             conflictTitle,
-            isPresented: Binding(get: { model.startConflict != nil }, set: { if !$0 { model.resolveConflict(nil) } }),
+            // Deferred: SwiftUI may reset the binding *before* running the tapped button's action,
+            // which would clear the conflict and turn "Complete current & start" into a no-op.
+            isPresented: Binding(get: { model.startConflict != nil }, set: { [model] presented in
+                if !presented { Task { @MainActor in model.resolveConflict(nil) } }
+            }),
             titleVisibility: .visible
         ) {
             Button("Complete current & start") { model.resolveConflict(.completeOther) }

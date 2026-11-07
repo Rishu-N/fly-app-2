@@ -264,7 +264,8 @@ extension View {
         #if compiler(>=6.2)
         // Xcode 26+ SDK: real Liquid Glass on iOS 26, material fallback below.
         if #available(iOS 26.0, *) {
-            self.glassEffect(Glass.regular.tint(tint).interactive(interactive), in: shape)
+            let glass = tint.map { Glass.regular.tint($0) } ?? Glass.regular
+            self.glassEffect(glass.interactive(interactive), in: shape)
         } else {
             materialFallback(shape)
         }

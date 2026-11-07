@@ -1,3 +1,4 @@
+import Combine
 import PlannerCore
 import SwiftUI
 import UIKit
@@ -38,7 +39,7 @@ struct AuroraField: View {
         .opacity(tone == .idle ? 0.5 : 1)
         .onAppear { visible = true }
         .onDisappear { visible = false }
-        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange).receive(on: RunLoop.main)) { _ in
             lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
         .accessibilityHidden(true)

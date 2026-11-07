@@ -31,7 +31,7 @@ struct LensCard: View {
             .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).stroke(palette.separator.opacity(0.6), lineWidth: 0.5))
             .background(alignment: .leading) { swipeHint }
             .offset(x: dragX)
-            .gesture(swipe)
+            .simultaneousGesture(swipe)
             .matchedGeometryEffect(id: snapshot.focusTask?.id ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")!, in: namespace)
             .sensoryFeedback(.success, trigger: completeTrigger)
             .confirmationDialog("Later", isPresented: $showLater, titleVisibility: .hidden) { laterActions }
