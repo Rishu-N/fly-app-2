@@ -416,12 +416,16 @@ final class AppModel: NSObject {
         defer { assertion.end() }
         await store.waitUntilLoaded()
         await bootTask?.value // existing Live Activity adopted, notification permission known
-        // Validate against the task's *current* state (the Live Activity may be stale).
-        guard let id = UUID(uuidString: taskID), let task = store.task(id), task.status.isActive else {
+        // Validate against the task's *current* state (the Live Activity / widget may be stale).
+        guard let id = UUID(uuidString: taskID), let task = store.task(id),
+              action == .start ? task.status == .planned : task.status.isActive else {
             await settle()
             return
         }
         switch action {
+        case .start:
+            // Never silently stop another timer from a widget: only start when nothing runs.
+            if store.activeTask == nil { perform(.start, on: task, undoable: false) }
         case .togglePause:
             perform(task.status == .paused ? .resume : .pause, on: task, undoable: false)
         case .complete:

@@ -205,3 +205,18 @@ Notes (High): prompts over 272K input tokens cost 2× input and 1.5× output. Ba
 22. CI: switch `runs-on: macos-15` to `macos-26` (or pin `Xcode_26.x`) so the build uses the iOS 26 SDK that App Store uploads now require. Keep the "newest Xcode" and simulator-picking steps.
 
 *Firecrawl note: Your Firecrawl credits ran out. Daily MCP credits refresh in 23h 50m. Add credits or upgrade to keep going: https://www.firecrawl.dev/billing/s/EFJTYyvf9pEiXLAjmQPEWlygBi5mAcZHBy8NSHcBZp0*
+
+---
+
+## Addendum (2026-11-09, lead engineer): Section B items re-checked via web search
+
+Firecrawl credits ran out before section B. These four items were re-checked with a regular web search against Apple and GitHub sources:
+
+| Claim | Verified value | Source | Confidence |
+|---|---|---|---|
+| `Glass.tint(_:)` parameter type | Takes **`Color?`** (pass `nil` for no tint) | [Apple: Glass.tint(_:)](https://developer.apple.com/documentation/swiftui/glass/tint(_:)) | High |
+| `tabViewBottomAccessory` | `tabViewBottomAccessory(content:)` from iOS 26.0. An `isEnabled:` overload exists for 26.1+, but Apple forum threads, including a DTS reply, report it as laggy or buggy on 26.1 and needing Xcode 26.2+. **Decision:** keep Dayflight's own overlay mini-player. | [Apple doc](https://developer.apple.com/documentation/swiftui/view/tabviewbottomaccessory(content:)), [forum 806373](https://developer.apple.com/forums/thread/806373), [forum 803404](https://developer.apple.com/forums/thread/803404) | Medium-high |
+| Which process runs an interactive widget / Live Activity `Button(intent:)` | A **`LiveActivityIntent`** (or one with `openAppWhenRun`) runs in the **app process**. A plain `AppIntent` runs in the widget extension. **Decision:** widget Start/Pause/Complete buttons use LiveActivityIntents. | [Apple: Adding interactivity to widgets and Live Activities](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities) | High |
+| GitHub-hosted macOS 26 runners | `macos-26` (arm64) has been generally available since 2026-02-26, with the Xcode 26.x line (26.0.1 → 26.4+) | [GitHub changelog](https://github.blog/changelog/2026-02-26-macos-26-is-now-generally-available-for-github-hosted-runners/) | High |
+
+Still unverified, to re-check once Firecrawl credits reset: the 8 h ActivityKit cap wording, the iOS 26 SDK upload-requirement date, the exact privacy-manifest reason-code wording, and `ControlWidget` details.

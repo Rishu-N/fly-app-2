@@ -147,21 +147,42 @@ private struct SmallNow: View {
                 if let s = task.session {
                     if task.status == .paused {
                         Text(formatClock(s.remaining(at: entry.date))).font(TypeRamp.timer(28)).foregroundStyle(palette.text2)
-                        Text("Paused").font(.caption2).foregroundStyle(palette.text2)
                     } else {
                         Text(timerInterval: s.displayInterval(at: entry.date), countsDown: true)
                             .font(TypeRamp.timer(28))
                             .foregroundStyle(palette.text1)
-                        ProgressView(timerInterval: s.displayInterval(at: entry.date), countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                            .tint(task.category.color)
                     }
+                    HStack(spacing: 8) {
+                        Button(intent: TogglePauseTaskIntent(taskID: task.id.uuidString)) {
+                            Image(systemName: task.status == .paused ? "play.fill" : "pause.fill")
+                                .frame(maxWidth: .infinity, minHeight: 26)
+                        }
+                        .tint(palette.text2)
+                        .accessibilityLabel(task.status == .paused ? "Resume" : "Pause")
+                        Button(intent: CompleteTaskIntent(taskID: task.id.uuidString)) {
+                            Image(systemName: "checkmark")
+                                .frame(maxWidth: .infinity, minHeight: 26)
+                        }
+                        .tint(palette.success)
+                        .accessibilityLabel("Complete")
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
                 }
             case .due(let task):
                 header("Now", task: task)
                 Text(task.title).font(.system(size: 15, weight: .semibold)).lineLimit(2).foregroundStyle(palette.text1)
                 Spacer(minLength: 0)
                 Text(formatDuration(task.durationMinutes)).font(TypeRamp.timer(28)).foregroundStyle(palette.text1)
-                Text("Tap to start").font(.caption2).foregroundStyle(palette.now)
+                Button(intent: StartTaskIntent(taskID: task.id.uuidString)) {
+                    Label("Start", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity, minHeight: 26)
+                }
+                .font(.system(size: 13, weight: .bold))
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .tint(palette.now)
             case .gap(let next):
                 header("Next · \(next.start.formatted(date: .omitted, time: .shortened))", task: next)
                 Text(next.title).font(.system(size: 15, weight: .semibold)).lineLimit(2).foregroundStyle(palette.text1)

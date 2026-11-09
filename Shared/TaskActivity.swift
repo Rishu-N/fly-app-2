@@ -64,7 +64,27 @@ extension TaskActivityAttributes.ContentState {
 // In the widget extension these compile to no-ops.
 
 enum TimerIntentAction: String, Sendable {
-    case togglePause, complete, extend
+    case togglePause, complete, extend, start
+}
+
+/// Starts a planned block from a widget / Lock Screen button. A `LiveActivityIntent`, so the
+/// system runs it in the app process and lets it start the Live Activity from the background.
+struct StartTaskIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Start Task"
+    static let description = IntentDescription("Starts the block's timer for its full planned duration.")
+    static let isDiscoverable = false
+
+    @Parameter(title: "Task ID") var taskID: String
+
+    init() {}
+    init(taskID: String) { self.taskID = taskID }
+
+    func perform() async throws -> some IntentResult {
+        #if DAYFLIGHT_APP
+        await AppModel.shared.handleIntent(.start, taskID: taskID)
+        #endif
+        return .result()
+    }
 }
 
 struct TogglePauseTaskIntent: LiveActivityIntent {
