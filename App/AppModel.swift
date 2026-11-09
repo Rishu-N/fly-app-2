@@ -318,6 +318,16 @@ final class AppModel: NSObject {
         }
     }
 
+    /// "Complete & start next" (long-press on Complete): finishes the running block and starts
+    /// the next one at its full planned duration from now.
+    func completeAndStartNext(_ task: PlanTask) {
+        let next = store.snapshot(at: Date()).upcoming.first { $0.id != task.id }
+        perform(.complete, on: task)
+        if let next, let fresh = store.task(next.id), fresh.status == .planned {
+            perform(.start, on: fresh)
+        }
+    }
+
     func delete(_ task: PlanTask) {
         guard let removed = store.delete(task.id) else { return }
         let entry = store.lastUndoID

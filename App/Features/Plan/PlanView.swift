@@ -4,17 +4,29 @@ import SwiftUI
 struct PlanView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.palette) private var palette
+    @State private var mode: Mode = .day
+
+    enum Mode: String, CaseIterable { case day = "Day", week = "Week" }
 
     var body: some View {
         @Bindable var model = model
         NavigationStack {
             VStack(spacing: 0) {
-                WeekStrip(selected: $model.selectedPlanDay)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-                Divider().overlay(palette.separator)
-                DayTimelineView(day: model.selectedPlanDay)
+                if mode == .day {
+                    WeekStrip(selected: $model.selectedPlanDay)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                    Divider().overlay(palette.separator)
+                    DayTimelineView(day: model.selectedPlanDay)
+                        .transition(.opacity)
+                } else {
+                    WeekOverviewView(selected: $model.selectedPlanDay) { _ in
+                        withAnimation(Motion.glide) { mode = .day }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                }
             }
+            .animation(Motion.glide, value: mode)
             .background(palette.bg.ignoresSafeArea())
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -24,6 +36,13 @@ struct PlanView: View {
                         withAnimation(Motion.snappy) { model.selectedPlanDay = DayKey(Date(), calendar: model.store.calendar) }
                     }
                     .disabled(model.selectedPlanDay == DayKey(Date(), calendar: model.store.calendar))
+                }
+                ToolbarItem(placement: .principal) {
+                    Picker("View", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 140)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

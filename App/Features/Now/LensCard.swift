@@ -122,6 +122,18 @@ struct LensCard: View {
                     Label("Complete", systemImage: "checkmark")
                 }
                 .buttonStyle(PillButtonStyle(fill: palette.success, foreground: .white))
+                .contextMenu {
+                    if let next = snapshot.upcoming.first {
+                        Button("Complete & start \(next.title)", systemImage: "forward.fill") {
+                            completeTrigger += 1
+                            withAnimation(Motion.adaptive(Motion.conveyor, reduceMotion: reduceMotion)) {
+                                model.completeAndStartNext(task)
+                            }
+                        }
+                    }
+                    Button("Complete", systemImage: "checkmark") { complete(task) }
+                }
+                .accessibilityAction(named: "Complete and start next") { model.completeAndStartNext(task) }
                 Menu {
                     if !overrun {
                         Button("Add 5 minutes", systemImage: "plus") { act(.extend(minutes: 5), task) }
