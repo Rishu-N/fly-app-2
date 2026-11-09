@@ -105,7 +105,7 @@ final class AssistantService {
             if transcript.items.count > 300 { transcript.items.removeFirst(transcript.items.count - 300) }
             if transcript.wire.count > 200 { transcript.wire.removeFirst(transcript.wire.count - 200) }
             let url = Self.transcriptURL
-            Task.detached(priority: .utility) {
+            Task.detached(priority: .utility) { [transcript] in
                 if let data = try? JSONEncoder().encode(transcript) { try? data.write(to: url, options: [.atomic]) }
             }
         }

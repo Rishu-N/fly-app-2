@@ -295,9 +295,10 @@ final class AppModel: NSObject {
         }
         // `perform` records one undo entry for complete / cancel / skip; the toast undoes *that*.
         let entry = store.lastUndoID != previousUndo ? store.lastUndoID : nil
-        let undo: (@MainActor () -> Void)? = (undoable && entry != nil) ? { [weak self] in
-            if let entry { self?.store.undo(entry) }
-        } : nil
+        var undo: (@MainActor () -> Void)?
+        if undoable, let entry {
+            undo = { [weak self] in _ = self?.store.undo(entry) }
+        }
         switch action {
         case .complete:
             Haptics.play(.complete)
