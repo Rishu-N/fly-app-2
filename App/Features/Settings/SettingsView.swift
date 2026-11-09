@@ -43,6 +43,8 @@ struct SettingsView: View {
                     Toggle("Auto-complete when the timer ends", isOn: $settingsStore.settings.autoCompleteWhenTimerEnds)
                 }
 
+                calendarSection
+
                 Section("Look & feel") {
                     ThemePicker(selection: $settingsStore.theme)
                     Toggle("Ambient aurora", isOn: $settingsStore.settings.ambientBackground)
@@ -67,6 +69,32 @@ struct SettingsView: View {
             .onChange(of: model.settings.settings) { _, new in
                 Haptics.enabled = new.hapticsEnabled
             }
+        }
+    }
+
+    @ViewBuilder
+    private var calendarSection: some View {
+        let overlay = model.calendarOverlay
+        Section {
+            Toggle("Show Apple Calendar events", isOn: Binding(
+                get: { overlay.isActive },
+                set: { on in
+                    if on, !overlay.isAuthorized {
+                        Task { await overlay.requestAccess() }
+                    } else {
+                        overlay.enabled = on
+                    }
+                }
+            ))
+            if overlay.status == .denied || overlay.status == .restricted {
+                Button("Allow calendar access in iOS Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+            }
+        } header: {
+            Text("Calendar")
+        } footer: {
+            Text("Events show as busy time on your timeline, and quick add and the assistant work around them. Dayflight never changes your calendars.")
         }
     }
 

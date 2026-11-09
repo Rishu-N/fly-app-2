@@ -38,6 +38,9 @@ struct RootView: View {
         .sheet(isPresented: $model.showSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $model.showInsights) {
+            InsightsView()
+        }
         .confirmationDialog(
             conflictTitle,
             // Deferred: SwiftUI may reset the binding *before* running the tapped button's action,

@@ -16,3 +16,4 @@ Packages/
 # Secrets
 *.xcconfig.local
 Secrets.xcconfig
+.claude/

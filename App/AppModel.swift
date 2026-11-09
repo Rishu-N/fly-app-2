@@ -40,6 +40,8 @@ final class AppModel: NSObject {
     let notifications = NotificationScheduler()
     let liveActivities = LiveActivityController()
     let widgets = WidgetSnapshotWriter()
+    /// Read-only Apple Calendar events (busy time). Off until the user enables it.
+    let calendarOverlay = CalendarOverlay()
 
     /// Created on first use (Assistant tab / Settings) — never on a background launch.
     var assistantService: AssistantService {
@@ -56,6 +58,7 @@ final class AppModel: NSObject {
     var captureSeed = ""
     var editingTask: PlanTask?
     var showSettings = false
+    var showInsights = false
     var toast: Toast?
     var startConflict: StartConflict?
     var selectedPlanDay = DayKey(Date())
@@ -371,7 +374,8 @@ final class AppModel: NSObject {
         let windowEnd = cal.date(bySettingHour: min(23, settings.settings.dayEndHour), minute: 0, second: 0, of: dayInterval.start) ?? dayInterval.end
         let lower = max(windowStart, ScheduleMath.roundUp(now, toMinutes: 5, calendar: cal))
         let window = DateInterval(start: min(lower, windowEnd), end: max(lower, windowEnd))
-        let free = ScheduleMath.freeSlots(in: window, tasks: store.tasks(in: window), minimumMinutes: duration, now: now)
+        let busy = calendarOverlay.events(in: window, calendar: cal)
+        let free = ScheduleMath.freeSlots(in: window, tasks: store.tasks(in: window), busy: busy, minimumMinutes: duration, now: now)
         if let slot = free.first { return ScheduleMath.roundUp(slot.start, toMinutes: 5, calendar: cal) }
         return lower
     }

@@ -1,6 +1,7 @@
 import ActivityKit
 import Foundation
 import PlannerCore
+import UIKit
 
 /// Mirrors the single active task into one Live Activity. Updates are sent only when the
 /// content state actually changes (start / pause / resume / extend / next-task change), never
@@ -11,6 +12,10 @@ final class LiveActivityController {
     private var lastState: TaskActivityAttributes.ContentState?
     /// The user swiped this task's activity away — don't re-request it on every foreground.
     private var dismissedTaskID: String?
+    /// When the current activity was started (or adopted). ActivityKit ends activities after
+    /// 8 h, so a long-running block gets a fresh one after 7 h (when the app is foreground).
+    private var activityStartedAt: Date?
+    static let refreshAfter: TimeInterval = 7 * 3600
 
     var isAvailable: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
@@ -19,6 +24,7 @@ final class LiveActivityController {
         let all = Activity<TaskActivityAttributes>.activities
         current = all.first(where: { $0.activityState == .active || $0.activityState == .stale })
         lastState = current?.content.state
+        activityStartedAt = current == nil ? nil : Date()
         // End duplicates (shouldn't happen, but never leave orphans on the Lock Screen).
         for extra in all where extra.id != current?.id {
             Task { await extra.end(nil, dismissalPolicy: .immediate) }
@@ -42,7 +48,10 @@ final class LiveActivityController {
         let stale: Date? = state.isPaused ? nil : state.timerEnd
         let content = ActivityContent(state: state, staleDate: stale, relevanceScore: 100)
 
-        if let current, current.content.state.taskID == state.taskID,
+        // Only refresh in the foreground: a background request would fail and leave nothing.
+        let needsRefresh = UIApplication.shared.applicationState == .active
+            && (activityStartedAt.map { Date().timeIntervalSince($0) > Self.refreshAfter } ?? false)
+        if let current, current.content.state.taskID == state.taskID, !needsRefresh,
            current.activityState == .active || current.activityState == .stale {
             guard state != lastState else { return }
             lastState = state
@@ -64,6 +73,7 @@ final class LiveActivityController {
                 pushType: nil
             )
             lastState = state
+            activityStartedAt = Date()
         } catch {
             // Typically "app is not foreground" when started from a notification action;
             // `sync` runs again when the app becomes active.

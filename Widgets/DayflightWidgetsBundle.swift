@@ -6,5 +6,6 @@ struct DayflightWidgetsBundle: WidgetBundle {
     var body: some Widget {
         NowWidget()
         TaskLiveActivityWidget()
+        QuickAddControl()
     }
 }

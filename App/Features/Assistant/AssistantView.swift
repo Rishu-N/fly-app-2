@@ -86,6 +86,7 @@ struct AssistantView: View {
 
     private var composer: some View {
         VStack(spacing: 8) {
+            MiniPlayer()
             if !session.items.isEmpty, !session.isRunning, session.pendingQuestion == nil {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {

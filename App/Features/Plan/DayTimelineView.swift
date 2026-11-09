@@ -20,6 +20,7 @@ struct DayTimelineView: View {
         let cal = model.store.calendar
         let dayStart = day.startDate(calendar: cal)
         let tasks = model.store.tasks(on: day)
+        let busy = model.calendarOverlay.events(on: day, calendar: cal)
         let lanes = Self.assignLanes(tasks)
         let now = max(model.clockTick, Date())
         let isToday = cal.isDate(now, inSameDayAs: dayStart)
@@ -30,7 +31,17 @@ struct DayTimelineView: View {
                     let width = geo.size.width - gutter - 16
                     ZStack(alignment: .topLeading) {
                         hourGrid
-                        freeGaps(tasks: tasks, dayStart: dayStart, width: width, now: now)
+                        if !busy.isEmpty {
+                            AllDayStrip(events: busy.filter(\.isAllDay))
+                                .frame(width: width)
+                                .offset(x: gutter, y: 0)
+                            ForEach(busy.filter { !$0.isAllDay }) { event in
+                                BusyEventBlock(event: event)
+                                    .frame(width: width - 4, height: max(22, CGFloat(event.durationMinutes) * pointsPerMinute - 3))
+                                    .offset(x: gutter, y: y(for: event.start, dayStart: dayStart))
+                            }
+                        }
+                        freeGaps(tasks: tasks, busy: busy, dayStart: dayStart, width: width, now: now)
                         ForEach(tasks) { task in
                             let lane = lanes[task.id] ?? (0, 1)
                             let laneWidth = width / CGFloat(lane.count)
@@ -100,13 +111,13 @@ struct DayTimelineView: View {
     }
 
     @ViewBuilder
-    private func freeGaps(tasks: [PlanTask], dayStart: Date, width: CGFloat, now: Date) -> some View {
+    private func freeGaps(tasks: [PlanTask], busy: [BusyBlock], dayStart: Date, width: CGFloat, now: Date) -> some View {
         let s = model.settings.settings
         let cal = model.store.calendar
         let windowStart = cal.date(bySettingHour: s.dayStartHour, minute: 0, second: 0, of: dayStart) ?? dayStart
         let windowEnd = cal.date(bySettingHour: min(23, s.dayEndHour), minute: 0, second: 0, of: dayStart) ?? dayStart
         if windowEnd > windowStart, !tasks.isEmpty {
-            let gaps = ScheduleMath.freeSlots(in: DateInterval(start: windowStart, end: windowEnd), tasks: tasks, minimumMinutes: 30, now: now)
+            let gaps = ScheduleMath.freeSlots(in: DateInterval(start: windowStart, end: windowEnd), tasks: tasks, busy: busy, minimumMinutes: 30, now: now)
             ForEach(gaps, id: \.start) { gap in
                 let minutes = Int(gap.duration / 60)
                 Button {
@@ -222,6 +233,64 @@ struct DayTimelineView: View {
 }
 
 /// One block on the timeline: 14 % category tint + 3 pt bar, plan-vs-actual for finished ones.
+/// Read-only Apple Calendar event: hatched, calendar-tinted, behind Dayflight blocks.
+private struct BusyEventBlock: View {
+    let event: BusyBlock
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        let tint = Color(hex: event.colorHex)
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "calendar")
+                .font(.caption2)
+            Text(event.title)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text(event.start.clockString())
+                .font(.caption2.monospacedDigit())
+        }
+        .foregroundStyle(palette.text2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(tint.opacity(0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(tint.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                )
+        }
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Calendar event \(event.title), \(event.start.clockString()) to \(event.end.clockString())")
+    }
+}
+
+private struct AllDayStrip: View {
+    let events: [BusyBlock]
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        if !events.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(events) { event in
+                    Text(event.title)
+                        .font(.caption2.weight(.medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color(hex: event.colorHex).opacity(0.16), in: Capsule())
+                        .foregroundStyle(palette.text2)
+                }
+                Spacer(minLength: 0)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+}
+
 private struct TimelineBlock: View {
     let task: PlanTask
     let now: Date

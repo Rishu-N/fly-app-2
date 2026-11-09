@@ -96,6 +96,13 @@ private struct NowHeader: View {
                 }
                 Spacer()
                 DriftChip(snapshot: snapshot)
+                Button { model.showInsights = true } label: {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.title3)
+                        .foregroundStyle(palette.text2)
+                        .frame(width: 40, height: 44)
+                }
+                .accessibilityLabel("Insights")
                 Button { model.showSettings = true } label: {
                     Image(systemName: "gearshape")
                         .font(.title3)
