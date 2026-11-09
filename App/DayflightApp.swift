@@ -13,6 +13,7 @@ struct DayflightApp: App {
                 .environment(model)
                 .environment(\.palette, model.settings.theme.palette)
                 .tint(model.settings.theme.palette.now)
+                .preferredColorScheme(UITestSupport.forcedColorScheme)
                 .onOpenURL { model.open($0) }
         }
         .onChange(of: scenePhase) { _, phase in

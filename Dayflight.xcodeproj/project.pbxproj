@@ -20,6 +20,13 @@
 			remoteGlobalIDString = 3066B83005404F5DBE5896C4;
 			remoteInfo = DayflightWidgets;
 		};
+		A452E309303E69D0F0709A46 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A303B9D37AE41E79FFDCC92 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA9196B6F1F6F215942F9BE;
+			remoteInfo = Dayflight;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,6 +46,7 @@
 /* Begin PBXFileReference section */
 		1DE35546B3C5D3B1123F11DE /* Dayflight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dayflight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayflightWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		04FBF05168E07C0665B92A87 /* DayflightUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayflightUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E01BB4E3FC0AF019038DE36E /* PlannerCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = PlannerCore; sourceTree = "<group>"; };
 		2AB56E7278C61D51303E6D6F /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		94FBDCD9037B1F3F0D879002 /* Dayflight-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Dayflight-Info.plist"; sourceTree = "<group>"; };
@@ -64,6 +72,11 @@
 			path = Widgets;
 			sourceTree = "<group>";
 		};
+		3D7281B5228E0A70F76C10D1 /* UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +96,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		51C729CA766017AC9F03E823 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -92,6 +112,7 @@
 				3BAEFDB5742C8A98B0361858 /* App */,
 				FE8FA287515AA79FCD2DC279 /* Shared */,
 				5A7A925447EFF977262CC0E3 /* Widgets */,
+				3D7281B5228E0A70F76C10D1 /* UITests */,
 				E01BB4E3FC0AF019038DE36E /* PlannerCore */,
 				1D3E89D85689D78EE59CDDE6 /* Config */,
 				4F966E1D9C4DFB017CDF7615 /* project.yml */,
@@ -116,6 +137,7 @@
 			children = (
 				1DE35546B3C5D3B1123F11DE /* Dayflight.app */,
 				763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */,
+				04FBF05168E07C0665B92A87 /* DayflightUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -173,6 +195,27 @@
 			productReference = 763465F72E48FE0229ED0EC3 /* DayflightWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		D6E0B1695E03FB7A7FF4C5F4 /* DayflightUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1F15DA32EE6BFD18799B909 /* Build configuration list for PBXNativeTarget "DayflightUITests" */;
+			buildPhases = (
+				F13D60B9041907935F428D6A /* Sources */,
+				51C729CA766017AC9F03E823 /* Frameworks */,
+				427E5B727B0F444C0C346DDC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0631993C7FDF19C34510C373 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3D7281B5228E0A70F76C10D1 /* UITests */,
+			);
+			name = DayflightUITests;
+			productName = DayflightUITests;
+			productReference = 04FBF05168E07C0665B92A87 /* DayflightUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -188,6 +231,10 @@
 					};
 					3066B83005404F5DBE5896C4 = {
 						CreatedOnToolsVersion = 16.0;
+					};
+					D6E0B1695E03FB7A7FF4C5F4 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 4CA9196B6F1F6F215942F9BE;
 					};
 				};
 			};
@@ -210,6 +257,7 @@
 			targets = (
 				4CA9196B6F1F6F215942F9BE /* Dayflight */,
 				3066B83005404F5DBE5896C4 /* DayflightWidgets */,
+				D6E0B1695E03FB7A7FF4C5F4 /* DayflightUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +271,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		41BACF6A0B648622B01E352C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		427E5B727B0F444C0C346DDC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -246,6 +301,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F13D60B9041907935F428D6A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -253,6 +315,11 @@
 			isa = PBXTargetDependency;
 			target = 3066B83005404F5DBE5896C4 /* DayflightWidgets */;
 			targetProxy = 2C3577E7A71C1596324CE943 /* PBXContainerItemProxy */;
+		};
+		0631993C7FDF19C34510C373 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA9196B6F1F6F215942F9BE /* Dayflight */;
+			targetProxy = A452E309303E69D0F0709A46 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -502,6 +569,42 @@
 			};
 			name = Release;
 		};
+		D8A0528A8E56EF86CA50BFB0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Dayflight;
+			};
+			name = Debug;
+		};
+		1B64B8402471DDAB425FD76E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2AB56E7278C61D51303E6D6F /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Dayflight;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -528,6 +631,15 @@
 			buildConfigurations = (
 				AF3DBE6B707114A3F3554469 /* Debug */,
 				D5B64FEA8208E6A589372623 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1F15DA32EE6BFD18799B909 /* Build configuration list for PBXNativeTarget "DayflightUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D8A0528A8E56EF86CA50BFB0 /* Debug */,
+				1B64B8402471DDAB425FD76E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

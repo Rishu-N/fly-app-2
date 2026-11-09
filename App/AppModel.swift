@@ -74,10 +74,13 @@ final class AppModel: NSObject {
 
     private override init() {
         // Cheap: no disk IO here (the store loads asynchronously in `bootstrap`).
-        let persistence = JSONFilePersistence(directory: AppGroup.dataDirectory)
+        let persistence: PlannerPersistence = UITestSupport.isActive
+            ? UITestSupport.makePersistence()
+            : JSONFilePersistence(directory: AppGroup.dataDirectory)
         store = TaskStore(persistence: persistence)
         settings = SettingsStore()
         super.init()
+        if UITestSupport.isActive { UITestSupport.configure(settings) }
         Haptics.enabled = settings.settings.hapticsEnabled
 
         store.onChange = { [weak self] change in self?.storeDidChange(change) }
