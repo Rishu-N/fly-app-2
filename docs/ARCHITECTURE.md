@@ -358,6 +358,24 @@ Rules for `tasks`:
 
 **Unsupported parameters:** `reasoning_effort`, `max_completion_tokens` and `stream_options` are dropped per model and the request retried (✓).
 
+**Model capabilities (implemented 2026-11; from OpenAI facts verified 2026-11-09):**
+- `ModelCapabilities.for(model)` decides tool support, allowed or forced `reasoning_effort`, and `developer` vs `system` role.
+- Defaults:
+  - The default model is `gpt-6-luna`. On Chat Completions it calls tools only at effort `"none"`, so it is always sent `"none"`.
+  - `gpt-6-astra` and `gpt-6.1-*` cannot use tools on Chat Completions. The turn fails with a clear message and nothing is sent.
+  - Saved settings migrate retired models (`gpt-5*`, `gpt-4.1-mini`, `gpt-4o-mini`, …) and the `"minimal"` effort.
+- Fallback:
+  - It reads `/models` `shutdown_date` and skips models shut down, or shutting down within 30 days.
+  - It also skips non-tool-capable models.
+  - A 400 about `reasoning_effort` is retried with `"none"` where the model accepts it.
+- `reasoning_effort` is sent to api.openai.com, Azure OpenAI and OpenRouter hosts, never to local servers.
+- On OpenAI hosts the static prompt and CONTEXT are sent as `developer` messages.
+- External calendar events (EventKit, read-only) reach the tools through `AssistantEnvironment.busyBlocks`:
+  - `list_tasks` returns `e*` rows, with titles only if shared.
+  - `find_free_slots` avoids events.
+  - Proposals that overlap an event get a note.
+- Follow-up: GPT-6 reasoning *with* tools needs the Responses API transport.
+
 **Errors:**
 
 | Error | Behaviour |
