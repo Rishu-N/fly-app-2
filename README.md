@@ -17,6 +17,17 @@ OpenAI assistant that plans with you.
   adds and moves blocks, asks clarifying questions, and comes with 12 prompt templates. Every
   change is shown as a review card, and nothing changes until you tap **Apply**. Every applied
   change can be undone.
+- **Plan tab.** A day timeline (drag a block to move it, with a 5-minute snap) and a **week
+  overview** zoom level.
+- **Apple Calendar overlay.** Optional and read-only. Your events show as busy time, and quick add
+  and the assistant plan around them. Event titles are only shared with the assistant if you turn
+  that on.
+- **Insights.** Focused vs planned time, on-time starts, start drift, completion rate,
+  focus by category, and your streak.
+- **Everywhere on the system:**
+  - Siri/Shortcuts: "Add a block", "Start my next block", "I'm done", "What's next".
+  - A Control Center / Action button control for quick add.
+  - Start, Pause and Complete buttons on the Home Screen widget.
 
 ---
 
@@ -45,14 +56,21 @@ entitlements in `Config/*.entitlements`: the app still runs, but widgets won't s
 Core logic tests (any machine with Swift 6, Linux included):
 
 ```bash
-cd PlannerCore && swift test     # 62 tests
+cd PlannerCore && swift test     # 150+ tests
 ```
 
-> **Heads-up on OpenAI models.** The default model is `gpt-5-mini`. Our market research found
-> that OpenAI lists `gpt-5-mini`/`gpt-5-nano` for retirement on **2026-12-11** and
-> `gpt-4o-mini`/`gpt-4.1-mini` on **2027-01-14**. The model field in Settings is filled from your
-> account's live `GET /models` list. If the configured model has been retired, the assistant
-> automatically switches to an available one and tells you.
+> **OpenAI models (verified 2026-11-09 on developers.openai.com, see
+> `docs/research/verification-2026-11.md`).** The default is **`gpt-6-luna`**, OpenAI's cheapest
+> current model at $0.10 / $0.50 per 1M tokens.
+> - **Effort:** On Chat Completions, `gpt-6-luna` and `gpt-6-sol` can only call tools with
+>   `reasoning_effort: "none"`. The app handles this per model (`ModelCapabilities`), and Settings
+>   only offers efforts the model accepts.
+> - **Retirements:** `gpt-5-mini`/`gpt-5`/`gpt-5-nano` shut down on **2026-12-11** and
+>   `gpt-4.1-mini`/`gpt-4o-mini` on **2027-01-14**. Saved settings using those models migrate
+>   automatically.
+> - **Picker and fallback:** The picker is filled from your account's live `GET /models` list. If a
+>   model is retired or about to be (its `shutdown_date`), the assistant switches to an available
+>   tool-capable model and tells you.
 
 ---
 
@@ -135,18 +153,34 @@ spec. Key decisions:
   - At most 6 round trips per message.
   - Streaming with cancellation.
 
+## Testing & CI
+
+Every push runs `.github/workflows/ci.yml`:
+
+- **Linux:** `swift test` for PlannerCore. The suite includes property and fuzz tests, a scripted
+  conversation for each of the 12 assistant templates, adversarial and prompt-injection tests,
+  and real HTTP tests against a mock OpenAI server.
+- **macOS 26 (Xcode 26):**
+  - PlannerCore tests again, which covers the Darwin streaming path.
+  - A full build of the app and widget extension for the iOS simulator.
+  - UI tests that drive the Now (running, paused, overrun, gap, empty), quick add, Plan (day and
+    week), Insights, Assistant and Settings screens in light and dark mode.
+  - Screenshots exported as the `screenshots` artifact, plus a text layout audit (clipping,
+    overlap, small tap targets) printed in the log.
+
+UI-test mode: launch with `-UITests -UITestsScenario running|paused|overrun|gap|empty`
+(add `-UITestsDark` for dark mode) for deterministic in-memory data.
+
 ## Status & next steps
 
-- `PlannerCore` builds and its 62 unit tests pass (run on Linux).
-- The iOS app and widget code was written against the iOS 18/26 SDKs and reviewed, but it has
-  **not been compiled in Xcode yet**, because this was produced in a Linux environment. Expect to
-  fix a few small compile issues on the first build.
+- PlannerCore tests pass on Linux and macOS. The iOS app, widgets and UI tests **build and pass in
+  CI on Xcode 26 / `macos-26`**.
 - Things that can only be checked on a real device:
   - Live Activity buttons while the phone is locked
   - notification actions when the app has been killed
   - time-sensitive delivery
   - the battery cost of the aurora (measure with Instruments)
 - **Roadmap:**
-  - v1.1: iCloud sync, Apple Calendar overlay, Insights, Siri/Shortcuts quick add, custom
-    templates, interactive widgets.
-  - v2.0: Apple Watch, iPad/Mac, an on-device model option.
+  - Next: iCloud sync, custom templates, and a Responses API transport so GPT-6 models can reason
+    while using tools.
+  - Later: Apple Watch, iPad/Mac, an on-device model option.
