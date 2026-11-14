@@ -42,7 +42,11 @@ public enum AssistantError: Error, Equatable, Sendable {
 public struct AssistantEndpoint: Sendable, Equatable {
     public var baseURL: URL
     public var apiKey: String
-    public var isOpenAI: Bool { baseURL.host?.hasSuffix("openai.com") ?? false }
+    /// `api.openai.com` (or another `*.openai.com` host) — not look-alikes such as `myopenai.com`.
+    public var isOpenAI: Bool {
+        guard let host = baseURL.host?.lowercased() else { return false }
+        return host == "openai.com" || host.hasSuffix(".openai.com")
+    }
 
     public init(baseURL: URL, apiKey: String) {
         self.baseURL = baseURL
@@ -63,6 +67,15 @@ public struct AssistantEndpoint: Sendable, Equatable {
 public protocol ChatTransport: Sendable {
     func stream(_ request: ChatRequest, endpoint: AssistantEndpoint) -> AsyncThrowingStream<ChatStreamChunk, Error>
     func listModels(endpoint: AssistantEndpoint) async throws -> [String]
+    /// `GET /models` with each entry's `shutdown_date`, used to pick a fallback model.
+    func listModelInfo(endpoint: AssistantEndpoint) async throws -> [ModelInfo]
+}
+
+extension ChatTransport {
+    /// Transports that only know ids report no shutdown dates.
+    public func listModelInfo(endpoint: AssistantEndpoint) async throws -> [ModelInfo] {
+        try await listModels(endpoint: endpoint).map { ModelInfo(id: $0) }
+    }
 }
 
 /// URLSession-backed OpenAI client. One shared ephemeral session (no cookies/cache on disk),
@@ -97,11 +110,15 @@ public final class OpenAIHTTPTransport: ChatTransport, @unchecked Sendable {
     }
 
     public func listModels(endpoint: AssistantEndpoint) async throws -> [String] {
+        try await listModelInfo(endpoint: endpoint).map(\.id)
+    }
+
+    public func listModelInfo(endpoint: AssistantEndpoint) async throws -> [ModelInfo] {
         let request = makeRequest(path: "models", endpoint: endpoint, body: nil)
         let (data, response) = try await data(for: request)
         try Self.check(response: response, data: data, model: "")
         let list = try JSONDecoder().decode(ModelList.self, from: data)
-        return list.data.map(\.id).sorted()
+        return list.data.sorted { $0.id < $1.id }
     }
 
     public func stream(_ request: ChatRequest, endpoint: AssistantEndpoint) -> AsyncThrowingStream<ChatStreamChunk, Error> {
@@ -142,12 +159,7 @@ public final class OpenAIHTTPTransport: ChatTransport, @unchecked Sendable {
             try Task.checkCancellation()
             switch SSELine.parse(line) {
             case .data(let payload):
-                guard let data = payload.data(using: .utf8) else { continue }
-                if let chunk = try? decoder.decode(ChatStreamChunk.self, from: data) {
-                    continuation.yield(chunk)
-                } else if let envelope = try? decoder.decode(APIErrorEnvelope.self, from: data), let body = envelope.error {
-                    throw AssistantError.server(status: 200, message: body.message ?? "Unknown error")
-                }
+                if let chunk = try Self.decodeEvent(payload, decoder: decoder) { continuation.yield(chunk) }
             case .done:
                 return
             case .ignore:
@@ -160,17 +172,27 @@ public final class OpenAIHTTPTransport: ChatTransport, @unchecked Sendable {
         let (data, response) = try await data(for: request)
         try Self.check(response: response, data: data, model: model)
         let text = String(decoding: data, as: UTF8.self)
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+        // `\.isNewline` also splits CRLF ("\r\n" is a single Character, so splitting on "\n" misses it).
+        for line in text.split(omittingEmptySubsequences: true, whereSeparator: \.isNewline) {
             switch SSELine.parse(String(line)) {
             case .data(let payload):
-                if let d = payload.data(using: .utf8), let chunk = try? decoder.decode(ChatStreamChunk.self, from: d) {
-                    continuation.yield(chunk)
-                }
+                if let chunk = try Self.decodeEvent(payload, decoder: decoder) { continuation.yield(chunk) }
             case .done: return
             case .ignore: continue
             }
         }
         #endif
+    }
+
+    /// Decodes one `data:` payload. An `{"error": …}` event mid-stream is thrown, not swallowed
+    /// (every JSON object also decodes as a `ChatStreamChunk`, whose fields are all optional, so
+    /// the error envelope has to be checked first).
+    static func decodeEvent(_ payload: String, decoder: JSONDecoder) throws -> ChatStreamChunk? {
+        let data = Data(payload.utf8)
+        if let envelope = try? decoder.decode(APIErrorEnvelope.self, from: data), let body = envelope.error {
+            throw AssistantError.server(status: 200, message: body.message ?? "Unknown error")
+        }
+        return try? decoder.decode(ChatStreamChunk.self, from: data)
     }
 
     private func data(for request: URLRequest) async throws -> (Data, URLResponse) {

@@ -111,7 +111,8 @@ final class AssistantSessionTests: XCTestCase {
         XCTAssertEqual(transport.requests.count, 2)
         let first = transport.requests[0].messages
         XCTAssertEqual(first[0].content, SystemPrompt.staticPart, "system prompt must stay static for prompt caching")
-        XCTAssertTrue(first.contains { $0.role == .system && ($0.content ?? "").contains("t1|2026-11-07T10:00|15|Standup|meeting|upcoming") })
+        // The default model (gpt-6-luna) takes instructions as `developer` messages on OpenAI.
+        XCTAssertTrue(first.contains { $0.role == .developer && ($0.content ?? "").contains("t1|2026-11-07T10:00|15|Standup|meeting|upcoming") })
         XCTAssertEqual(first.last?.role, .user)
         // Second request must carry the tool result for list_tasks.
         XCTAssertEqual(transport.requests[1].messages.last?.role, .tool)
@@ -164,8 +165,9 @@ final class AssistantSessionTests: XCTestCase {
         session.onModelFallback = { switched = $0 }
         session.send("hi")
         await waitUntilIdle(session)
-        XCTAssertEqual(switched, "gpt-6-luna")
-        XCTAssertEqual(transport.requests.last?.model, "gpt-6-luna")
+        // The default model is now gpt-6-luna itself, so the fallback is the next small chat model.
+        XCTAssertEqual(switched, "gpt-4.1-mini")
+        XCTAssertEqual(transport.requests.last?.model, "gpt-4.1-mini")
     }
 
     func testMissingKeyShowsError() async {

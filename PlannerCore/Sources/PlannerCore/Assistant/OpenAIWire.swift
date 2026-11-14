@@ -19,6 +19,7 @@ public struct ChatMessage: Codable, Hashable, Sendable {
     }
 
     public static func system(_ text: String) -> ChatMessage { ChatMessage(role: .system, content: text) }
+    public static func developer(_ text: String) -> ChatMessage { ChatMessage(role: .developer, content: text) }
     public static func user(_ text: String) -> ChatMessage { ChatMessage(role: .user, content: text) }
     public static func assistant(_ text: String?, toolCalls: [ToolCall]? = nil) -> ChatMessage {
         ChatMessage(role: .assistant, content: text, toolCalls: (toolCalls?.isEmpty ?? true) ? nil : toolCalls)
@@ -106,20 +107,26 @@ public struct ChatRequest: Encodable, Sendable {
 public struct TokenUsage: Codable, Hashable, Sendable {
     public var promptTokens: Int
     public var completionTokens: Int
+    /// Prompt tokens read from the provider's cache.
     public var cachedTokens: Int?
+    /// Prompt tokens written to the cache (billed at 1.25× input on GPT-5.6 and later).
+    public var cacheWriteTokens: Int?
 
-    public init(promptTokens: Int = 0, completionTokens: Int = 0, cachedTokens: Int? = nil) {
+    public init(promptTokens: Int = 0, completionTokens: Int = 0, cachedTokens: Int? = nil, cacheWriteTokens: Int? = nil) {
         self.promptTokens = promptTokens
         self.completionTokens = completionTokens
         self.cachedTokens = cachedTokens
+        self.cacheWriteTokens = cacheWriteTokens
     }
 
     public var total: Int { promptTokens + completionTokens }
 
     public static func + (a: TokenUsage, b: TokenUsage) -> TokenUsage {
-        TokenUsage(promptTokens: a.promptTokens + b.promptTokens,
-                   completionTokens: a.completionTokens + b.completionTokens,
-                   cachedTokens: (a.cachedTokens ?? 0) + (b.cachedTokens ?? 0))
+        func sum(_ x: Int?, _ y: Int?) -> Int? { x == nil && y == nil ? nil : (x ?? 0) + (y ?? 0) }
+        return TokenUsage(promptTokens: a.promptTokens + b.promptTokens,
+                          completionTokens: a.completionTokens + b.completionTokens,
+                          cachedTokens: sum(a.cachedTokens, b.cachedTokens),
+                          cacheWriteTokens: sum(a.cacheWriteTokens, b.cacheWriteTokens))
     }
 
     enum CodingKeys: String, CodingKey {
@@ -128,20 +135,31 @@ public struct TokenUsage: Codable, Hashable, Sendable {
         case promptTokensDetails = "prompt_tokens_details"
     }
 
-    struct PromptDetails: Codable { var cachedTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens" } }
+    struct PromptDetails: Codable {
+        var cachedTokens: Int?
+        var cacheWriteTokens: Int?
+        enum CodingKeys: String, CodingKey {
+            case cachedTokens = "cached_tokens"
+            case cacheWriteTokens = "cache_write_tokens"
+        }
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         promptTokens = try c.decodeIfPresent(Int.self, forKey: .promptTokens) ?? 0
         completionTokens = try c.decodeIfPresent(Int.self, forKey: .completionTokens) ?? 0
-        cachedTokens = try c.decodeIfPresent(PromptDetails.self, forKey: .promptTokensDetails)?.cachedTokens
+        let details = try? c.decodeIfPresent(PromptDetails.self, forKey: .promptTokensDetails)
+        cachedTokens = details?.cachedTokens
+        cacheWriteTokens = details?.cacheWriteTokens
     }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(promptTokens, forKey: .promptTokens)
         try c.encode(completionTokens, forKey: .completionTokens)
-        try c.encodeIfPresent(cachedTokens.map { PromptDetails(cachedTokens: $0) }, forKey: .promptTokensDetails)
+        if cachedTokens != nil || cacheWriteTokens != nil {
+            try c.encode(PromptDetails(cachedTokens: cachedTokens, cacheWriteTokens: cacheWriteTokens), forKey: .promptTokensDetails)
+        }
     }
 }
 
@@ -255,6 +273,6 @@ public struct APIErrorEnvelope: Decodable, Sendable {
 }
 
 public struct ModelList: Decodable, Sendable {
-    public struct Model: Decodable, Sendable { public var id: String }
-    public var data: [Model]
+    public typealias Model = ModelInfo
+    public var data: [ModelInfo]
 }

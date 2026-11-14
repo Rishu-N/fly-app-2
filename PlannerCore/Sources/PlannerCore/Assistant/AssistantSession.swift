@@ -92,7 +92,12 @@ public final class AssistantSession {
     @ObservationIgnored private var pendingNotes: [String] = []
     @ObservationIgnored private var runTask: Task<Void, Never>?
     @ObservationIgnored private var droppedParams: [String: Set<String>] = [:]
-    @ObservationIgnored private var modelOverride: String?
+    /// `reasoning_effort` to send instead of the computed one, per model (after a 400 about it).
+    @ObservationIgnored private var effortOverrides: [String: String] = [:]
+    /// A model picked because `configured` wasn't available. Ignored once the user picks another.
+    @ObservationIgnored private var fallback: (configured: String, effective: String)?
+    /// Bumped by `clear()` so a turn that is still winding down can't write into the new chat.
+    @ObservationIgnored private var epoch = 0
 
     public init(store: TaskStore, environment: AssistantEnvironment, transcript: AssistantTranscript? = nil) {
         self.store = store
@@ -135,6 +140,7 @@ public final class AssistantSession {
 
     public func clear() {
         stop()
+        epoch &+= 1
         items = []
         wire = []
         refs = TaskRefRegistry()
@@ -169,7 +175,13 @@ public final class AssistantSession {
         q.answer = text
         items[index].kind = .question(q)
         items.append(ChatItem(.user(text), date: env.now()))
-        wire.append(.tool(q.callID, (["answer": .string(text)] as JSONValue).serialized()))
+        var result: [String: JSONValue] = ["answer": .string(text)]
+        if !pendingNotes.isEmpty {
+            // e.g. the user applied the card shown next to this question while it was open.
+            result["app_note"] = .string(pendingNotes.joined(separator: " "))
+            pendingNotes.removeAll()
+        }
+        wire.append(.tool(q.callID, JSONValue.object(result).serialized()))
         // Any other unanswered questions from the same turn are closed so the wire stays valid.
         for i in items.indices {
             if case .question(var other) = items[i].kind, other.answer == nil {
@@ -198,14 +210,21 @@ public final class AssistantSession {
             p.undoEntryID = result.undoID
             p.createdSeriesIDs = result.series
         }
-        let titles = proposal.items.filter(\.isSelected).compactMap { ($0.after ?? $0.before)?.title }.prefix(6)
+        // Titles are data: quoted and flattened so a title can't add lines to the user's message.
+        let titles = proposal.items.filter(\.isSelected).compactMap { ($0.after ?? $0.before)?.title }.prefix(6).map(Self.quoted)
         var note = "User applied \(proposalID) (\(result.count) of \(proposal.items.count) changes: \(titles.joined(separator: ", ")))."
         if !result.skipped.isEmpty {
-            note += " Skipped because they had already started or changed: \(result.skipped.joined(separator: ", "))."
+            note += " Skipped because they had already started or changed: \(result.skipped.map(Self.quoted).joined(separator: ", "))."
             items.append(ChatItem(.notice("Skipped \(result.skipped.joined(separator: ", ")) — already started or changed.")))
         }
         pendingNotes.append(note)
         changed()
+    }
+
+    /// `"Title"` on one line, at most 60 characters, for App notes.
+    nonisolated static func quoted(_ title: String) -> String {
+        let flat = ToolExecutor.flatten(title).replacingOccurrences(of: "\"", with: "'")
+        return "\"" + (flat.count > 60 ? String(flat.prefix(59)) + "…" : flat) + "\""
     }
 
     public func discard(_ proposalID: String) {
@@ -217,10 +236,23 @@ public final class AssistantSession {
 
     public func undo(_ proposalID: String) {
         guard let proposal = proposal(proposalID), case .applied = proposal.state else { return }
-        if let entry = proposal.undoEntryID { store.undo(entry, now: env.now()) }
+        // Tasks this card added that the user has since started stay (the store never deletes a
+        // running task on a plan-level undo).
+        let kept = proposal.items.filter { $0.kind == .add }.compactMap { $0.after.flatMap { store.task($0.id) } }.filter(\.status.isActive)
+        if let entry = proposal.undoEntryID, !store.undo(entry, now: env.now()) {
+            // The store only keeps the last 20 undo steps (or it was undone from elsewhere).
+            items.append(ChatItem(.notice("That change can't be undone any more."), date: env.now()))
+            changed()
+            return
+        }
         for seriesID in proposal.createdSeriesIDs { store.removeSeries(seriesID) }
         mutateProposal(proposalID) { $0.state = .undone }
-        pendingNotes.append("User undid \(proposalID); those changes were reverted.")
+        var note = "User undid \(proposalID); those changes were reverted."
+        if !kept.isEmpty {
+            note += " Kept \(kept.map { Self.quoted($0.title) }.joined(separator: ", ")) because it is running."
+            items.append(ChatItem(.notice("Kept \(kept.map(\.title).joined(separator: ", ")) — it's already running."), date: env.now()))
+        }
+        pendingNotes.append(note)
         changed()
     }
 
@@ -270,11 +302,22 @@ public final class AssistantSession {
         var draft: Proposal?
         var attemptedFallback = false
         var retriesLeft = 1
+        var roundsLeft = maxRounds
+        var hitRoundLimit = false
+        let turnEpoch = epoch
 
-        rounds: for _ in 0..<maxRounds {
+        rounds: while true {
             if Task.isCancelled { break }
+            guard roundsLeft > 0 else { hitRoundLimit = true; break }
+            roundsLeft -= 1
             let now = env.now()
-            let model = modelOverride ?? settings.assistant.model
+            let model = currentModel(settings)
+            let capabilities = ModelCapabilities.for(model)
+            if !capabilities.supportsChatTools {
+                let message = "“\(model)” can't use the assistant's tools through Chat Completions. Pick a tool-capable model (for example \(AssistantSettings.defaultModel)) in Settings › Assistant."
+                items.append(ChatItem(.error(message, retryable: false), date: now))
+                break rounds
+            }
             let request = buildRequest(model: model, settings: settings, endpoint: endpoint, now: now)
 
             var acc = StreamAccumulator()
@@ -291,24 +334,33 @@ public final class AssistantSession {
                         }
                     }
                 }
+                // A cancelled consumer sees the stream end *normally* (AsyncThrowingStream returns
+                // nil on cancellation), so a Stop mid-reply must be detected here, not in `catch`.
+                if Task.isCancelled { throw AssistantError.cancelled }
                 streamingText = acc.text
             } catch let error as AssistantError {
                 if error == .cancelled || Task.isCancelled {
-                    if !acc.text.isEmpty { commitAssistantText(acc.text + " …") }
-                    items.append(ChatItem(.notice("Stopped.")))
-                    rollBackDanglingToolCalls()
+                    // After clear() the conversation is gone: write nothing into the new one.
+                    if turnEpoch == epoch {
+                        if !acc.text.isEmpty { commitAssistantText(acc.text + " …") }
+                        items.append(ChatItem(.notice("Stopped.")))
+                        rollBackDanglingToolCalls()
+                    }
                     break rounds
                 }
                 if case .modelNotFound = error, !attemptedFallback {
                     attemptedFallback = true
-                    if let fallback = await pickFallbackModel(endpoint: endpoint, unavailable: model) {
-                        modelOverride = fallback
-                        onModelFallback?(fallback)
-                        items.append(ChatItem(.notice("“\(model)” isn't available, so I switched to \(fallback).")))
+                    let replacement = await pickFallbackModel(endpoint: endpoint, unavailable: model)
+                    if Task.isCancelled { break rounds }
+                    if let replacement {
+                        fallback = (configured: settings.assistant.model, effective: replacement)
+                        onModelFallback?(replacement)
+                        items.append(ChatItem(.notice("“\(model)” isn't available, so I switched to \(replacement).")))
                         continue rounds
                     }
                 }
-                if case .server(400, let message) = error, let param = Self.unsupportedParameter(in: message), dropParam(param, for: model) {
+                if case .server(400, let message) = error, let param = Self.unsupportedParameter(in: message),
+                   recoverFromUnsupported(param, model: model, sentEffort: request.reasoningEffort) {
                     continue rounds
                 }
                 if error.isRetryable, retriesLeft > 0 {
@@ -328,6 +380,15 @@ public final class AssistantSession {
 
             if let u = acc.usage { usage = usage + u }
             let calls = acc.toolCalls
+            if acc.text.isEmpty, calls.isEmpty {
+                // Nothing to show and nothing to send back: an assistant message with neither
+                // content nor tool calls is invalid on the next request.
+                let message = acc.finishReason == "length"
+                    ? "The reply hit the output limit before any text arrived. Tap Retry."
+                    : "The model sent an empty reply. Tap Retry."
+                items.append(ChatItem(.error(message, retryable: true), date: now))
+                break rounds
+            }
             wire.append(.assistant(acc.text.isEmpty ? nil : acc.text, toolCalls: calls))
             if !acc.text.isEmpty { commitAssistantText(acc.text) }
             streamingText = ""
@@ -337,9 +398,14 @@ public final class AssistantSession {
             var askedQuestion = false
             let executor = ToolExecutor(store: store, settings: settings, now: now, shareNotes: settings.assistant.shareNotes)
             for call in calls {
-                let args = JSONValue.parse(call.function.arguments) ?? [:]
                 guard let tool = AssistantTool(rawValue: call.function.name) else {
-                    wire.append(.tool(call.id, #"{"status":"error","code":"unknown_tool"}"#))
+                    let names = AssistantTool.allCases.map(\.rawValue).joined(separator: ", ")
+                    wire.append(.tool(call.id, (["status": "error", "code": "unknown_tool", "message": .string("Available tools: \(names).")] as JSONValue).serialized()))
+                    needsFollowUp = true
+                    continue
+                }
+                guard let args = JSONValue.parse(call.function.arguments), case .object = args else {
+                    wire.append(.tool(call.id, (["status": "error", "code": "bad_arguments", "message": "Arguments must be one JSON object matching the tool's schema. Nothing was staged."] as JSONValue).serialized()))
                     needsFollowUp = true
                     continue
                 }
@@ -385,8 +451,33 @@ public final class AssistantSession {
             if askedQuestion { break rounds }
             if !needsFollowUp { break rounds }
         }
+        guard turnEpoch == epoch else { return }
         // A proposal staged in the final round (e.g. loop limit) still needs to be shown.
         if let d = draft, !d.items.isEmpty { items.append(ChatItem(.proposal(d), date: env.now())) }
+        if hitRoundLimit {
+            items.append(ChatItem(.notice("I stopped after \(maxRounds) steps without finishing. Try a more specific request."), date: env.now()))
+        }
+    }
+
+    /// The model to use: a fallback only while the user still has the model it replaced.
+    private func currentModel(_ settings: PlannerSettings) -> String {
+        if let fallback, fallback.configured == settings.assistant.model { return fallback.effective }
+        return settings.assistant.model
+    }
+
+    /// Handles a 400 that names an unsupported parameter. Returns true to retry the round.
+    private func recoverFromUnsupported(_ param: String, model: String, sentEffort: String?) -> Bool {
+        if param == "reasoning_effort" {
+            let caps = ModelCapabilities.for(model)
+            if caps.forcedEffort != nil || caps.allowedEfforts.contains("none") {
+                // Dropping the parameter means the API default ("medium"), which can't call tools
+                // on GPT-6 Luna/Sol. Retry once with "none"; if "none" itself is refused, give up.
+                guard sentEffort != "none", effortOverrides[model] == nil else { return false }
+                effortOverrides[model] = "none"
+                return true
+            }
+        }
+        return dropParam(param, for: model)
     }
 
     private func commitAssistantText(_ text: String) {
@@ -423,21 +514,27 @@ public final class AssistantSession {
             activeTaskRow: activeRow, todayRows: todayRows, tomorrowRows: tomorrowRows
         ))
         let history = Self.compact(wire, keepTurns: keepTurns)
+        let capabilities = ModelCapabilities.for(model)
         var messages: [ChatMessage]
         if endpoint.isOpenAI {
-            // Static system prompt + tools + history form a stable, cacheable prefix; the
-            // changing CONTEXT goes right before the latest user turn.
+            // Static prompt + tools + history form a stable, cacheable prefix; the changing
+            // CONTEXT goes right before the latest user turn, in the same role as the prompt
+            // (`developer` for o1 and newer, which replaces `system`).
+            let role: ChatMessage.Role = capabilities.usesDeveloperRole ? .developer : .system
             let lastUser = history.lastIndex(where: { $0.role == .user }) ?? history.endIndex
-            messages = [ChatMessage.system(SystemPrompt.staticPart)]
+            messages = [ChatMessage(role: role, content: SystemPrompt.staticPart)]
             messages += history[..<lastUser]
-            messages.append(.system(context))
+            messages.append(ChatMessage(role: role, content: context))
             messages += history[lastUser...]
         } else {
             // Many local servers only accept one leading system message.
             messages = [ChatMessage.system(SystemPrompt.staticPart + "\n\n" + context)] + history
         }
         let dropped = droppedParams[model] ?? []
-        let reasoning = Self.isReasoningModel(model) && endpoint.isOpenAI && !dropped.contains("reasoning_effort")
+        var effort: String?
+        if endpoint.isOpenAI, !dropped.contains("reasoning_effort") {
+            effort = effortOverrides[model] ?? capabilities.effort(forRequested: settings.assistant.reasoningEffort)
+        }
         return ChatRequest(
             model: model,
             messages: messages,
@@ -445,7 +542,7 @@ public final class AssistantSession {
             stream: true,
             streamOptions: endpoint.isOpenAI && !dropped.contains("stream_options") ? .init(includeUsage: true) : nil,
             maxCompletionTokens: endpoint.isOpenAI && !dropped.contains("max_completion_tokens") ? 3000 : nil,
-            reasoningEffort: reasoning ? settings.assistant.reasoningEffort : nil,
+            reasoningEffort: effort,
             parallelToolCalls: nil,
             user: nil
         )
@@ -474,11 +571,6 @@ public final class AssistantSession {
         return result
     }
 
-    nonisolated static func isReasoningModel(_ model: String) -> Bool {
-        let m = model.lowercased()
-        return m.hasPrefix("gpt-5") || m.hasPrefix("gpt-6") || m.hasPrefix("o1") || m.hasPrefix("o3") || m.hasPrefix("o4")
-    }
-
     nonisolated static func unsupportedParameter(in message: String) -> String? {
         let lower = message.lowercased()
         for param in ["reasoning_effort", "max_completion_tokens", "stream_options"] where lower.contains(param) {
@@ -495,28 +587,39 @@ public final class AssistantSession {
         return true
     }
 
-    /// Picks a replacement model from the live `/models` list: same family first, then any
-    /// small chat model, then anything chat-capable.
+    /// Picks a replacement model from the live `/models` list.
     private func pickFallbackModel(endpoint: AssistantEndpoint, unavailable: String) async -> String? {
-        guard let models = try? await env.transport.listModels(endpoint: endpoint), !models.isEmpty else { return nil }
-        return Self.chooseFallback(from: models, unavailable: unavailable)
+        guard let models = try? await env.transport.listModelInfo(endpoint: endpoint), !models.isEmpty else { return nil }
+        return Self.chooseFallback(from: models, unavailable: unavailable, now: env.now())
     }
 
     public nonisolated static func chooseFallback(from models: [String], unavailable: String) -> String? {
-        let chat = models.filter { id in
-            let m = id.lowercased()
-            let excluded = ["embedding", "whisper", "tts", "dall-e", "image", "audio", "realtime", "transcribe", "moderation", "search", "codex"]
-            return m.hasPrefix("gpt-") && !excluded.contains(where: m.contains) && m != unavailable.lowercased()
+        chooseFallback(from: models.map { ModelInfo(id: $0) }, unavailable: unavailable, now: Date())
+    }
+
+    /// Only tool-capable chat models that aren't shut down (or shutting down within 30 days) and
+    /// aren't premium/chat-tuned variants. Among `gpt-*` ids: the small tier (luna/mini, then
+    /// nano), then the newest version, then the shortest id (base alias over dated snapshot).
+    /// Other ids (local servers) keep the list's order. Nil when nothing is usable.
+    public nonisolated static func chooseFallback(from models: [ModelInfo], unavailable: String, now: Date) -> String? {
+        let horizon = now.addingTimeInterval(30 * 86_400)
+        let usable = models.filter { model in
+            let id = model.id.lowercased()
+            guard id != unavailable.lowercased() else { return false }
+            if let shutdown = model.shutdownDate, shutdown <= horizon { return false }
+            guard ModelCapabilities.for(model.id).supportsChatTools else { return false }
+            return !["-pro", "chat-latest"].contains(where: id.contains)
         }
-        func score(_ id: String) -> (Int, Int, String) {
+        func score(_ id: String) -> (Int, Int, Int, Int, String) {
             let m = id.lowercased()
-            let small = (m.contains("mini") || m.contains("luna") || m.contains("nano")) ? 0 : 1
-            let version = Int(m.dropFirst(4).prefix(while: \.isNumber)) ?? 0
-            // Prefer small, then newest major version, then shortest (base alias over dated snapshot).
-            return (small, -version, String(repeating: "z", count: m.count))
+            let tier = (m.contains("luna") || m.contains("mini")) ? 0 : m.contains("nano") ? 1 : 2
+            let version = m.dropFirst(4).prefix(while: { $0.isNumber || $0 == "." }).split(separator: ".")
+            let major = version.first.flatMap { Int($0) } ?? 0
+            let minor = version.dropFirst().first.flatMap { Int($0) } ?? 0
+            return (tier, -major, -minor, m.count, m)
         }
-        let sorted = chat.sorted { score($0) < score($1) }
-        return sorted.first ?? models.first(where: { $0 != unavailable })
+        let gpt = usable.filter { $0.id.lowercased().hasPrefix("gpt-") }.sorted { score($0.id) < score($1.id) }
+        return (gpt.first ?? usable.first)?.id
     }
 
     // MARK: Helpers

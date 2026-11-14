@@ -219,8 +219,24 @@ public struct Proposal: Identifiable, Codable, Hashable, Sendable {
     public var selectedCount: Int { items.filter(\.isSelected).count }
 
     mutating func merge(_ item: ProposalItem) {
-        if let target = item.targetID, item.kind != .add, item.kind != .addRoutine,
-           let index = items.firstIndex(where: { $0.targetID == target && $0.kind != .add }) {
+        guard let target = item.targetID else { return items.append(item) }
+        // The same new row again (a resent batch reuses the row's id): replace it in place.
+        if item.kind == .add || item.kind == .addRoutine {
+            if let index = items.firstIndex(where: { $0.kind == item.kind && $0.targetID == target }) {
+                items[index].after = item.after
+                items[index].series = item.series
+            } else {
+                items.append(item)
+            }
+            return
+        }
+        // An edit of a row this proposal adds stays one Add row (a separate Move would be skipped
+        // at Apply, because the task doesn't exist in the store yet).
+        if item.kind != .remove, let index = items.firstIndex(where: { $0.kind == .add && $0.targetID == target }) {
+            items[index].after = item.after
+            return
+        }
+        if let index = items.firstIndex(where: { $0.targetID == target && $0.kind != .add && $0.kind != .addRoutine }) {
             var merged = item
             merged.before = items[index].before ?? item.before
             items[index] = merged

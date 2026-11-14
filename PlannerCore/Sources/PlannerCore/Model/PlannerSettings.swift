@@ -60,8 +60,9 @@ public struct AssistantSettings: Codable, Hashable, Sendable {
     /// OpenAI by default; any OpenAI-compatible server (e.g. a local Ollama / LM Studio on your
     /// network) also works.
     public var baseURL: String = "https://api.openai.com/v1"
-    /// "minimal" | "low" | "medium" | "high" — only sent to reasoning models.
-    public var reasoningEffort: String = "low"
+    /// "none" | "low" | "medium" | "high" (| "xhigh" | "max"). Only sent when the model accepts it
+    /// (`ModelCapabilities.for(model).allowedEfforts`); GPT-6 Luna/Sol always get "none".
+    public var reasoningEffort: String = "none"
     /// Changes are always previewed; when false the assistant's proposals are applied
     /// immediately (with Undo).
     public var requireApproval: Bool = true
@@ -72,8 +73,11 @@ public struct AssistantSettings: Codable, Hashable, Sendable {
     /// Set once the user accepted the data-sharing disclosure (App Review 5.1.2(i)).
     public var consentGiven: Bool = false
 
-    public static let defaultModel = "gpt-5-mini"
-    public static let modelPresets = ["gpt-5-mini", "gpt-5", "gpt-5-nano", "gpt-4.1-mini", "gpt-4o-mini"]
+    /// Cheapest current OpenAI model with tool calling (verified 2026-11-09).
+    public static let defaultModel = "gpt-6-luna"
+    public static let modelPresets = ["gpt-6-luna", "gpt-5.6-luna", "gpt-5.4-mini", "gpt-6-sol", "gpt-5.6-terra"]
+    /// Retired or retiring (2026-10-23 … 2027-01-14) ids that migrate to `defaultModel` on load.
+    public static let retiredModels: Set<String> = ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano", "o4-mini", "o3-mini"]
 
     public init() {}
 
@@ -81,8 +85,11 @@ public struct AssistantSettings: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AssistantSettings()
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? d.model
+        if Self.retiredModels.contains(model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) { model = Self.defaultModel }
         baseURL = try c.decodeIfPresent(String.self, forKey: .baseURL) ?? d.baseURL
         reasoningEffort = try c.decodeIfPresent(String.self, forKey: .reasoningEffort) ?? d.reasoningEffort
+        // No current small model supports "minimal"; OpenAI's guidance is to start with "low".
+        if reasoningEffort == "minimal" { reasoningEffort = "low" }
         requireApproval = try c.decodeIfPresent(Bool.self, forKey: .requireApproval) ?? d.requireApproval
         contextDays = try c.decodeIfPresent(Int.self, forKey: .contextDays) ?? d.contextDays
         shareNotes = try c.decodeIfPresent(Bool.self, forKey: .shareNotes) ?? d.shareNotes

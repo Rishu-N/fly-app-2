@@ -295,6 +295,9 @@ public final class TaskStore {
         var deletions: [UUID] = []
         for id in changes.deletions {
             guard let old = tasksByID[id] else { continue }
+            // `.plan` changes never touch timers, so they can't delete a running/paused task
+            // (e.g. undoing an assistant Apply after the user started one of its new blocks).
+            if changes.mode == .plan, old.status.isActive { continue }
             inverseUpserts.append(old)
             deletions.append(id)
         }

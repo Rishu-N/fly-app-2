@@ -47,8 +47,21 @@ public struct ToolExecutor {
         return line
     }
 
+    /// Keeps user text inside one row: `|` would add a column, any line break a new line.
     private func sanitize(_ s: String) -> String {
-        s.replacingOccurrences(of: "|", with: "/").replacingOccurrences(of: "\n", with: " ")
+        Self.flatten(s).replacingOccurrences(of: "|", with: "/")
+    }
+
+    /// Replaces every line break (`\n`, `\r`, CRLF, NEL, U+2028/2029, VT, FF) and other control
+    /// character with a space. Works on scalars: "\r\n" is one `Character`, so a `"\n"` string
+    /// replacement can leave the `\r` behind.
+    nonisolated static func flatten(_ s: String) -> String {
+        var scalars = String.UnicodeScalarView()
+        for scalar in s.unicodeScalars {
+            let breaks = CharacterSet.newlines.contains(scalar) || CharacterSet.controlCharacters.contains(scalar)
+            scalars.append(breaks ? " " : scalar)
+        }
+        return String(scalars)
     }
 
     // MARK: Read tools
@@ -113,13 +126,31 @@ public struct ToolExecutor {
 
     // MARK: Write tools (staging)
 
+    /// Rows accepted per write call (the schema's `maxItems`) and items per change set.
+    public static let maxItemsPerCall = 50
+    public static let maxItemsPerProposal = 100
+
     public func stage(_ tool: AssistantTool, args: JSONValue, into proposal: inout Proposal, refs: inout TaskRefRegistry) -> String {
         var staged: [ProposalItem] = []
         var errors: [String] = []
 
+        /// The rows of `key` this call may stage, with an error for the rest.
+        func rows(_ key: String) -> ArraySlice<JSONValue> {
+            let all = args[key]?.array ?? []
+            let room = max(0, Self.maxItemsPerProposal - proposal.items.count)
+            let allowed = min(Self.maxItemsPerCall, room)
+            if all.count > allowed {
+                let left = all.count - allowed
+                errors.append(allowed < Self.maxItemsPerCall
+                    ? "this change set is full (\(Self.maxItemsPerProposal) items); \(left) rows were not staged — ask the user to apply it first"
+                    : "at most \(Self.maxItemsPerCall) rows per call; \(left) rows were not staged — send them in another call")
+            }
+            return all.prefix(allowed)
+        }
+
         switch tool {
         case .createTasks:
-            for entry in args["tasks"]?.array ?? [] {
+            for entry in rows("tasks") {
                 guard let title = entry["title"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
                     errors.append("missing title"); continue
                 }
@@ -129,18 +160,36 @@ public struct ToolExecutor {
                 let duration = min(720, max(1, entry["duration_minutes"]?.int ?? settings.defaultDurationMinutes))
                 let category = entry["category"]?.string.flatMap(TaskCategory.init(loose:)) ?? TaskCategory.guess(fromTitle: title)
                 let notes = entry["notes"]?.string ?? ""
-                let lead = entry["reminder_minutes"]?.int
-                if let rep = entry["repeat"], let rule = parseRepeat(rep) {
+                let lead = entry["reminder_minutes"]?.int.map { min(1440, max(0, $0)) }
+                // (Explicit: JSONValue is ExpressibleByNilLiteral, so `? nil : $0` would yield `.null`.)
+                var repeatArg: JSONValue? = entry["repeat"]
+                if let r = repeatArg, r.isNull || r["frequency"]?.string?.lowercased() == "none" { repeatArg = Optional.none }
+                if let repeatArg {
+                    guard let rule = parseRepeat(repeatArg, startingOn: parsed.date) else {
+                        errors.append("\(title): repeat.frequency must be daily, weekdays or weekly"); continue
+                    }
                     let c = calendar.dateComponents([.hour, .minute], from: parsed.date)
+                    let firstDay = DayKey(parsed.date, calendar: calendar)
                     let series = TaskSeries(
                         title: title, notes: notes, category: category, durationMinutes: duration,
                         leadTimeMinutes: lead, hour: c.hour ?? 9, minute: c.minute ?? 0, rule: rule,
-                        firstDay: DayKey(parsed.date, calendar: calendar)
+                        firstDay: firstDay
                     )
-                    let preview = series.makeOccurrence(on: DayKey(parsed.date, calendar: calendar), calendar: calendar, now: now)
+                    if let duplicate = proposal.items.first(where: { $0.kind == .addRoutine && $0.series.map { Self.sameRoutine($0, series) } == true }) {
+                        staged.append(duplicate); continue
+                    }
+                    // Preview the first day the routine actually occurs (a weekday routine that
+                    // "starts" on a Sunday first happens on Monday).
+                    let firstOccurrence = (0..<14).lazy.map { firstDay.adding(days: $0, calendar: calendar) }
+                        .first { series.occurs(on: $0, calendar: calendar) } ?? firstDay
+                    let preview = series.makeOccurrence(on: firstOccurrence, calendar: calendar, now: now)
                     staged.append(ProposalItem(kind: .addRoutine, after: preview, series: series, notes: [rule.label]))
                 } else {
+                    // Models often resend the whole batch after one row fails: the same title at the
+                    // same start replaces the earlier row instead of adding a duplicate.
+                    let reuse = proposal.items.first { $0.kind == .add && $0.after.map { Self.sameRow($0, title: title, start: parsed.date) } == true }
                     let task = PlanTask(
+                        id: reuse?.after?.id ?? UUID(),
                         title: title, notes: notes, start: parsed.date, durationMinutes: duration,
                         category: category, leadTimeMinutes: lead, source: .assistant, createdAt: now
                     )
@@ -149,9 +198,12 @@ public struct ToolExecutor {
             }
 
         case .updateTasks:
-            for entry in args["updates"]?.array ?? [] {
+            for entry in rows("updates") {
                 guard let ref = entry["id"]?.string, let id = refs.id(for: ref), let existing = currentVersion(of: id, in: proposal) else {
                     errors.append("unknown id \(entry["id"]?.string ?? "?") — call list_tasks first"); continue
+                }
+                if proposal.items.contains(where: { $0.kind == .addRoutine && $0.after?.id == id }) {
+                    errors.append("\(ref) is a routine in this proposal; send create_tasks again to change it"); continue
                 }
                 var t = existing
                 var moved = false
@@ -166,9 +218,11 @@ public struct ToolExecutor {
                 if let d = entry["duration_minutes"]?.int, d != t.durationMinutes { t.durationMinutes = min(720, max(1, d)); moved = true }
                 if let c = entry["category"]?.string.flatMap(TaskCategory.init(loose:)), c != t.category { t.category = c; edited = true }
                 if let n = entry["notes"]?.string, n != t.notes { t.notes = n; edited = true }
-                if let lead = entry["reminder_minutes"]?.int, lead != t.leadTimeMinutes { t.leadTimeMinutes = lead; edited = true }
-                guard moved || edited else { continue }
+                if let lead = entry["reminder_minutes"]?.int, lead != t.leadTimeMinutes { t.leadTimeMinutes = min(1440, max(0, lead)); edited = true }
+                guard moved || edited else { errors.append("\(ref): nothing to change"); continue }
                 if t.status.isClosed, moved { errors.append("\(ref) is already \(t.status.rawValue); not moved"); continue }
+                // Moving a running/paused block would never apply (and timers are the user's).
+                if t.status.isActive, moved { errors.append("\(ref) is \(t.status.rawValue); only tasks that haven't started can be moved"); continue }
                 let before = store.task(id) ?? existing
                 staged.append(ProposalItem(kind: moved ? .move : .edit, before: before, after: t))
             }
@@ -180,7 +234,15 @@ public struct ToolExecutor {
             }
             let afterRaw = args["after"]?.string ?? "00:00"
             guard let after = codec.parse("\(day)T\(afterRaw)")?.date else { return error("bad_args", "after must be HH:MM") }
-            let subset = Set((args["task_ids"]?.array ?? []).compactMap { $0.string.flatMap { refs.id(for: $0) } })
+            let requested = (args["task_ids"]?.array ?? []).compactMap(\.string)
+            var subset = Set<UUID>()
+            for ref in requested {
+                if let id = refs.id(for: ref) { subset.insert(id) } else { errors.append("unknown id \(ref)") }
+            }
+            // An explicit subset that resolves to nothing must not widen to "every task that day".
+            if !requested.isEmpty, subset.isEmpty {
+                return error("unknown_id", "none of task_ids is known — call list_tasks first; nothing was staged")
+            }
             let candidates = store.tasks(on: day).filter { $0.status == .planned && $0.start >= after && (subset.isEmpty || subset.contains($0.id)) }
             for task in candidates {
                 var t = currentVersion(of: task.id, in: proposal) ?? task
@@ -191,7 +253,7 @@ public struct ToolExecutor {
 
         case .deleteTasks:
             let reason = args["reason"]?.string
-            for raw in args["ids"]?.array ?? [] {
+            for raw in rows("ids") {
                 guard let ref = raw.string, let id = refs.id(for: ref), let task = store.task(id) else {
                     errors.append("unknown id \(raw.string ?? "?")"); continue
                 }
@@ -203,6 +265,12 @@ public struct ToolExecutor {
             return error("wrong_tool", "not a write tool")
         }
 
+        if staged.isEmpty {
+            // Don't claim anything was staged (and don't hand out a change-set id) when nothing was.
+            var result: [String: JSONValue] = ["status": "error", "code": "nothing_staged", "message": "Nothing was staged."]
+            if !errors.isEmpty { result["errors"] = .array(errors.map { .string($0) }) }
+            return JSONValue.object(result).serialized()
+        }
         if let summary = args["summary"]?.string, !summary.isEmpty {
             proposal.summary = proposal.summary.isEmpty ? summary : proposal.summary
         }
@@ -223,7 +291,7 @@ public struct ToolExecutor {
             ])
         }
         var result: [String: JSONValue] = [
-            "status": .string(staged.isEmpty ? "error" : "proposed"),
+            "status": "proposed",
             "change_set_id": .string(proposal.id),
             "items": .array(acks),
             "note": "Staged for the user's review. Nothing is saved until they tap Apply.",
@@ -251,7 +319,9 @@ public struct ToolExecutor {
                 guard let after = item.after else { continue }
                 guard let current else { skipped.append(after.title); continue }
                 if item.kind == .move, current.status != .planned { skipped.append(current.title); continue }
-                upserts.append(after)
+                // Rebase: only the fields this item changes are written, so an edit the user made
+                // after the proposal was staged (e.g. a rename) isn't overwritten.
+                upserts.append(item.before.map { Self.rebase(after, from: $0, onto: current) } ?? after)
                 count += 1
             case .remove:
                 guard let current, !current.status.isActive else {
@@ -279,6 +349,28 @@ public struct ToolExecutor {
     }
 
     // MARK: Helpers
+
+    /// `current` with every plan field that differs between `before` and `after` taken from `after`.
+    nonisolated static func rebase(_ after: PlanTask, from before: PlanTask, onto current: PlanTask) -> PlanTask {
+        var t = current
+        if after.title != before.title { t.title = after.title }
+        if after.notes != before.notes { t.notes = after.notes }
+        if after.start != before.start { t.start = after.start }
+        if after.durationMinutes != before.durationMinutes { t.durationMinutes = after.durationMinutes }
+        if after.category != before.category { t.category = after.category }
+        if after.leadTimeMinutes != before.leadTimeMinutes { t.leadTimeMinutes = after.leadTimeMinutes }
+        if after.remind != before.remind { t.remind = after.remind }
+        if after.checklist != before.checklist { t.checklist = after.checklist }
+        return t
+    }
+
+    nonisolated static func sameRow(_ task: PlanTask, title: String, start: Date) -> Bool {
+        task.start == start && task.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == title.lowercased()
+    }
+
+    nonisolated static func sameRoutine(_ a: TaskSeries, _ b: TaskSeries) -> Bool {
+        a.title.lowercased() == b.title.lowercased() && a.hour == b.hour && a.minute == b.minute && a.rule == b.rule && a.firstDay == b.firstDay
+    }
 
     private func currentVersion(of id: UUID, in proposal: Proposal) -> PlanTask? {
         if let staged = proposal.items.last(where: { $0.targetID == id && $0.kind != .remove })?.after { return staged }
@@ -316,7 +408,8 @@ public struct ToolExecutor {
         return DateInterval(start: s.date, end: end)
     }
 
-    private func parseRepeat(_ value: JSONValue) -> RepeatRule? {
+    /// A weekly rule without weekdays repeats on the weekday of `start` (not of today).
+    private func parseRepeat(_ value: JSONValue, startingOn start: Date) -> RepeatRule? {
         guard let freq = value["frequency"]?.string?.lowercased() else { return nil }
         switch freq {
         case "daily": return .daily
@@ -324,7 +417,7 @@ public struct ToolExecutor {
         case "weekly":
             let map = ["sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7]
             let days = Set((value["weekdays"]?.array ?? []).compactMap { $0.string.flatMap { map[String($0.lowercased().prefix(3))] } })
-            return .weekly(days: days.isEmpty ? [calendar.component(.weekday, from: now)] : days)
+            return .weekly(days: days.isEmpty ? [calendar.component(.weekday, from: start)] : days)
         default: return nil
         }
     }
