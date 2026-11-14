@@ -48,19 +48,23 @@ public struct AssistantEnvironment: Sendable {
     public var settings: @MainActor @Sendable () -> PlannerSettings
     public var uses24HourClock: @MainActor @Sendable () -> Bool
     public var now: @MainActor @Sendable () -> Date
+    /// Read-only external calendar events (Apple Calendar) overlapping an interval.
+    public var busyBlocks: @MainActor @Sendable (DateInterval) -> [BusyBlock]
 
     public init(
         transport: ChatTransport,
         apiKey: @escaping @MainActor @Sendable () -> String?,
         settings: @escaping @MainActor @Sendable () -> PlannerSettings,
         uses24HourClock: @escaping @MainActor @Sendable () -> Bool = { true },
-        now: @escaping @MainActor @Sendable () -> Date = { Date() }
+        now: @escaping @MainActor @Sendable () -> Date = { Date() },
+        busyBlocks: @escaping @MainActor @Sendable (DateInterval) -> [BusyBlock] = { _ in [] }
     ) {
         self.transport = transport
         self.apiKey = apiKey
         self.settings = settings
         self.uses24HourClock = uses24HourClock
         self.now = now
+        self.busyBlocks = busyBlocks
     }
 }
 
@@ -203,7 +207,7 @@ public final class AssistantSession {
 
     public func apply(_ proposalID: String) {
         guard let proposal = proposal(proposalID), proposal.state == .pending else { return }
-        let executor = ToolExecutor(store: store, settings: env.settings(), now: env.now(), shareNotes: false)
+        let executor = ToolExecutor(store: store, settings: env.settings(), now: env.now(), shareNotes: false, busy: env.busyBlocks)
         let result = executor.apply(proposal)
         mutateProposal(proposalID) { p in
             p.state = .applied(count: result.count, total: p.items.count)
@@ -396,7 +400,8 @@ public final class AssistantSession {
 
             var needsFollowUp = false
             var askedQuestion = false
-            let executor = ToolExecutor(store: store, settings: settings, now: now, shareNotes: settings.assistant.shareNotes)
+            let executor = ToolExecutor(store: store, settings: settings, now: now, shareNotes: settings.assistant.shareNotes,
+                                    busy: env.busyBlocks, shareEventTitles: settings.assistant.shareEventTitles)
             for call in calls {
                 guard let tool = AssistantTool(rawValue: call.function.name) else {
                     let names = AssistantTool.allCases.map(\.rawValue).joined(separator: ", ")
@@ -501,7 +506,8 @@ public final class AssistantSession {
     // MARK: Request building
 
     func buildRequest(model: String, settings: PlannerSettings, endpoint: AssistantEndpoint, now: Date) -> ChatRequest {
-        let executor = ToolExecutor(store: store, settings: settings, now: now, shareNotes: settings.assistant.shareNotes)
+        let executor = ToolExecutor(store: store, settings: settings, now: now, shareNotes: settings.assistant.shareNotes,
+                                    busy: env.busyBlocks, shareEventTitles: settings.assistant.shareEventTitles)
         let today = DayKey(now, calendar: store.calendar)
         let todayRows = store.tasks(on: today).map { executor.row(for: $0, refs: &refs) }
         var tomorrowRows: [String]?
@@ -509,9 +515,10 @@ public final class AssistantSession {
             tomorrowRows = store.tasks(on: today.adding(days: 1, calendar: store.calendar)).map { executor.row(for: $0, refs: &refs) }
         }
         let activeRow = store.activeTask.map { executor.row(for: $0, refs: &refs) }
+        let eventRows = executor.eventRows(in: today.interval(calendar: store.calendar))
         let context = SystemPrompt.context(.init(
             now: now, calendar: store.calendar, uses24HourClock: env.uses24HourClock(), settings: settings,
-            activeTaskRow: activeRow, todayRows: todayRows, tomorrowRows: tomorrowRows
+            activeTaskRow: activeRow, todayRows: todayRows, tomorrowRows: tomorrowRows, eventRows: eventRows
         ))
         let history = Self.compact(wire, keepTurns: keepTurns)
         let capabilities = ModelCapabilities.for(model)
@@ -532,7 +539,7 @@ public final class AssistantSession {
         }
         let dropped = droppedParams[model] ?? []
         var effort: String?
-        if endpoint.isOpenAI, !dropped.contains("reasoning_effort") {
+        if endpoint.acceptsReasoningEffort, !dropped.contains("reasoning_effort") {
             effort = effortOverrides[model] ?? capabilities.effort(forRequested: settings.assistant.reasoningEffort)
         }
         return ChatRequest(

@@ -70,6 +70,8 @@ public struct AssistantSettings: Codable, Hashable, Sendable {
     public var contextDays: Int = 1
     /// Task notes are only sent to the model when this is on.
     public var shareNotes: Bool = false
+    /// Calendar events are always sent as busy time; their titles only when this is on.
+    public var shareEventTitles: Bool = false
     /// Set once the user accepted the data-sharing disclosure (App Review 5.1.2(i)).
     public var consentGiven: Bool = false
 
@@ -93,10 +95,11 @@ public struct AssistantSettings: Codable, Hashable, Sendable {
         requireApproval = try c.decodeIfPresent(Bool.self, forKey: .requireApproval) ?? d.requireApproval
         contextDays = try c.decodeIfPresent(Int.self, forKey: .contextDays) ?? d.contextDays
         shareNotes = try c.decodeIfPresent(Bool.self, forKey: .shareNotes) ?? d.shareNotes
+        shareEventTitles = try c.decodeIfPresent(Bool.self, forKey: .shareEventTitles) ?? d.shareEventTitles
         consentGiven = try c.decodeIfPresent(Bool.self, forKey: .consentGiven) ?? d.consentGiven
     }
 
     private enum CodingKeys: String, CodingKey {
-        case model, baseURL, reasoningEffort, requireApproval, contextDays, shareNotes, consentGiven
+        case model, baseURL, reasoningEffort, requireApproval, contextDays, shareNotes, consentGiven, shareEventTitles
     }
 }

@@ -10,6 +10,7 @@ public enum SystemPrompt {
     - create_tasks, update_tasks, shift_tasks and delete_tasks only PROPOSE changes. The app shows them on a review card; the user taps Apply. Never say a change is done; say it is ready to review.
     - Batch related changes into as few calls as possible. Look tasks up with list_tasks (or use ids from CONTEXT) before editing; never invent ids.
     - Only touch tasks the user referred to. When replanning a range, change only tasks that are not completed, running or paused.
+    - Rows whose id starts with "e" are events from the user's calendar: busy, read-only. Plan around them; never try to edit or delete them.
     - Avoid overlaps unless the user asks for them. If nothing fits, say so and offer the closest option.
     - Messages starting with "(App note:" report what the user did with earlier proposals. If they discarded one, ask what to change instead of repeating it.
 
@@ -37,9 +38,13 @@ public enum SystemPrompt {
         public var activeTaskRow: String?
         public var todayRows: [String]
         public var tomorrowRows: [String]?
+        /// Read-only calendar events today (`e1|start|minutes|title|calendar`).
+        public var eventRows: [String]
 
         public init(now: Date, calendar: Calendar, uses24HourClock: Bool, settings: PlannerSettings,
-                    activeTaskRow: String?, todayRows: [String], tomorrowRows: [String]? = nil) {
+                    activeTaskRow: String?, todayRows: [String], tomorrowRows: [String]? = nil,
+                    eventRows: [String] = []) {
+            self.eventRows = eventRows
             self.now = now
             self.calendar = calendar
             self.uses24HourClock = uses24HourClock
@@ -74,6 +79,10 @@ public enum SystemPrompt {
         lines.append("Rows are id|start|minutes|title|category|state|flags.")
         lines.append("Today:")
         lines.append(contentsOf: ctx.todayRows.isEmpty ? ["(nothing scheduled)"] : ctx.todayRows)
+        if !ctx.eventRows.isEmpty {
+            lines.append("Calendar events today (read-only busy time):")
+            lines.append(contentsOf: ctx.eventRows)
+        }
         if let tomorrow = ctx.tomorrowRows {
             lines.append("Tomorrow:")
             lines.append(contentsOf: tomorrow.isEmpty ? ["(nothing scheduled)"] : tomorrow)

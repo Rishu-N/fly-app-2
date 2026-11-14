@@ -46,7 +46,7 @@ final class AppModel: NSObject {
     /// Created on first use (Assistant tab / Settings) — never on a background launch.
     var assistantService: AssistantService {
         if let existing = _assistant { return existing }
-        let created = AssistantService(store: store, settingsStore: settings, notifications: notifications)
+        let created = AssistantService(store: store, settingsStore: settings, notifications: notifications, calendarOverlay: calendarOverlay)
         _assistant = created
         return created
     }

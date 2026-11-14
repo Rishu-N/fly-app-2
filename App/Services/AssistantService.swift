@@ -27,7 +27,7 @@ final class AssistantService {
         return dir.appendingPathComponent("assistant-transcript.json")
     }
 
-    init(store: TaskStore, settingsStore: SettingsStore, notifications: NotificationScheduler) {
+    init(store: TaskStore, settingsStore: SettingsStore, notifications: NotificationScheduler, calendarOverlay: CalendarOverlay) {
         self.settingsStore = settingsStore
         self.notifications = notifications
         let transport = OpenAIHTTPTransport()
@@ -39,6 +39,10 @@ final class AssistantService {
             uses24HourClock: {
                 let format = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current) ?? ""
                 return !format.contains("a")
+            },
+            busyBlocks: { [weak calendarOverlay, weak store] interval in
+                guard let calendarOverlay, let store else { return [] }
+                return calendarOverlay.events(in: interval, calendar: store.calendar)
             }
         )
         session = AssistantSession(store: store, environment: env, transcript: nil)

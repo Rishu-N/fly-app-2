@@ -49,6 +49,7 @@ public enum AssistantTool: String, CaseIterable, Sendable {
                         "end": ["type": "string", "description": "Local ISO date or datetime, exclusive"],
                         "query": ["type": "string", "description": "Optional case-insensitive title/category filter"],
                         "include_done": ["type": "boolean", "description": "Include completed/cancelled/skipped (default true)"],
+                        "include_events": ["type": "boolean", "description": "Include read-only calendar events as busy rows (default true)"],
                     ],
                     "required": ["start", "end"],
                 ]

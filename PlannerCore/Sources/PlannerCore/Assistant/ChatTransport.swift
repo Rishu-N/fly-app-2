@@ -43,6 +43,14 @@ public struct AssistantEndpoint: Sendable, Equatable {
     public var baseURL: URL
     public var apiKey: String
     /// `api.openai.com` (or another `*.openai.com` host) — not look-alikes such as `myopenai.com`.
+    /// Hosts that serve genuine OpenAI models and accept `reasoning_effort` (Azure OpenAI,
+    /// OpenRouter) in addition to api.openai.com. Local servers never get it.
+    public var acceptsReasoningEffort: Bool {
+        if isOpenAI { return true }
+        let host = baseURL.host?.lowercased() ?? ""
+        return host.hasSuffix(".openai.azure.com") || host.hasSuffix(".cognitiveservices.azure.com") || host == "openrouter.ai"
+    }
+
     public var isOpenAI: Bool {
         guard let host = baseURL.host?.lowercased() else { return false }
         return host == "openai.com" || host.hasSuffix(".openai.com")

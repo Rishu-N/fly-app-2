@@ -152,8 +152,18 @@ struct SettingsView: View {
                 }
             }
 
-            Picker("Reasoning effort", selection: $settingsStore.settings.assistant.reasoningEffort) {
-                ForEach(["minimal", "low", "medium", "high"], id: \.self) { Text($0.capitalized).tag($0) }
+            let capabilities = ModelCapabilities.for(settingsStore.settings.assistant.model)
+            if !capabilities.supportsChatTools {
+                Label("This model can't use tools through Chat Completions — pick another so the assistant can edit your plan.",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(palette.warning)
+            } else if capabilities.hasEffortChoice {
+                Picker("Reasoning effort", selection: $settingsStore.settings.assistant.reasoningEffort) {
+                    ForEach(capabilities.allowedEfforts, id: \.self) { Text($0.capitalized).tag($0) }
+                }
+            } else if let forced = capabilities.forcedEffort {
+                LabeledContent("Reasoning effort", value: forced.capitalized)
             }
             TextField("Server", text: $settingsStore.settings.assistant.baseURL)
                 .keyboardType(.URL)
@@ -161,6 +171,9 @@ struct SettingsView: View {
                 .textInputAutocapitalization(.never)
                 .font(.footnote.monospaced())
             Toggle("Share task notes", isOn: $settingsStore.settings.assistant.shareNotes)
+            if model.calendarOverlay.isActive {
+                Toggle("Share calendar event titles", isOn: $settingsStore.settings.assistant.shareEventTitles)
+            }
             if service.session.usage.total > 0 {
                 let usage = service.session.usage
                 LabeledContent("This conversation", value: "\(usage.total) tokens")

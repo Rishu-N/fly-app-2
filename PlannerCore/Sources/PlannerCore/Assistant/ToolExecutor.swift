@@ -8,14 +8,30 @@ public struct ToolExecutor {
     public let settings: PlannerSettings
     public let now: Date
     public let shareNotes: Bool
+    /// External calendar events (read-only busy time).
+    public let busy: @MainActor (DateInterval) -> [BusyBlock]
+    /// Event titles are only sent when the user allows it; otherwise events read as "Busy".
+    public let shareEventTitles: Bool
     let codec: LocalTimeCodec
 
-    public init(store: TaskStore, settings: PlannerSettings, now: Date, shareNotes: Bool) {
+    public init(store: TaskStore, settings: PlannerSettings, now: Date, shareNotes: Bool,
+                busy: @escaping @MainActor (DateInterval) -> [BusyBlock] = { _ in [] },
+                shareEventTitles: Bool = false) {
         self.store = store
         self.settings = settings
         self.now = now
         self.shareNotes = shareNotes
+        self.busy = busy
+        self.shareEventTitles = shareEventTitles
         self.codec = LocalTimeCodec(calendar: store.calendar)
+    }
+
+    /// `e1|2026-11-07T15:00|30|Dentist|calendar` — timed events only, read-only.
+    public func eventRows(in interval: DateInterval) -> [String] {
+        busy(interval).filter { !$0.isAllDay }.sorted { $0.start < $1.start }.prefix(60).enumerated().map { index, event in
+            let title = shareEventTitles ? sanitize(event.title) : "Busy"
+            return "e\(index + 1)|\(codec.format(event.start))|\(event.durationMinutes)|\(title)|calendar"
+        }
     }
 
     var calendar: Calendar { store.calendar }
@@ -78,12 +94,19 @@ public struct ToolExecutor {
             tasks = tasks.filter { $0.title.lowercased().contains(query) || $0.category.rawValue == query }
         }
         let rows = tasks.sorted(by: ScheduleEngine.chronological).prefix(200).map { row(for: $0, refs: &refs) }
-        let payload: JSONValue = [
+        var payload: [String: JSONValue] = [
             "columns": "id|start|minutes|title|category|state|flags",
             "rows": .array(rows.map { .string($0) }),
             "count": .number(Double(rows.count)),
         ]
-        return payload.serialized()
+        if args["include_events"]?.bool ?? true {
+            let events = eventRows(in: range)
+            if !events.isEmpty {
+                payload["calendar_events"] = .array(events.map { .string($0) })
+                payload["calendar_note"] = "Read-only busy time from the user's calendar; plan around it, never edit it."
+            }
+        }
+        return JSONValue.object(payload).serialized()
     }
 
     public func findFreeSlots(_ args: JSONValue) -> String {
@@ -111,7 +134,8 @@ public struct ToolExecutor {
             let clippedEnd = min(window.end, range.end)
             if clippedStart < clippedEnd {
                 let tasks = store.tasks(in: DateInterval(start: clippedStart, end: clippedEnd))
-                let free = ScheduleMath.freeSlots(in: DateInterval(start: clippedStart, end: clippedEnd), tasks: tasks, minimumMinutes: duration, now: now)
+                let slotWindow = DateInterval(start: clippedStart, end: clippedEnd)
+                let free = ScheduleMath.freeSlots(in: slotWindow, tasks: tasks, busy: busy(slotWindow), minimumMinutes: duration, now: now)
                 for slot in free where slots.count < count {
                     let start = ScheduleMath.roundUp(slot.start, toMinutes: 5, calendar: calendar)
                     guard slot.end.timeIntervalSince(start) >= TimeInterval(duration * 60) else { continue }
@@ -393,6 +417,10 @@ public struct ToolExecutor {
             }
             for other in existing + others where other.start < task.end && other.end > task.start {
                 notes.append("Overlaps \(other.title) \(codec.formatClock(other.start))–\(codec.formatClock(other.end))")
+            }
+            for event in busy(window) where !event.isAllDay && event.start < task.end && event.end > task.start {
+                let title = shareEventTitles ? event.title : "a calendar event"
+                notes.append("Overlaps \(title) \(codec.formatClock(event.start))–\(codec.formatClock(event.end))")
             }
             if task.start < now.addingTimeInterval(-60), proposal.items[index].kind != .edit { notes.append("In the past") }
             proposal.items[index].notes = notes
