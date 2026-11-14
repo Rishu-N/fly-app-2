@@ -66,3 +66,25 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Config/DayflightWidgets.entitlements
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
+  DayflightUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Dayflight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Dayflight
+schemes:
+  Dayflight:
+    build:
+      targets:
+        Dayflight: all
+    test:
+      config: Debug
+      targets:
+        - name: DayflightUITests
+          parallelizable: false

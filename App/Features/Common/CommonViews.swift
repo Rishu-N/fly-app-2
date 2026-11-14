@@ -126,6 +126,20 @@ struct PillButtonStyle: ButtonStyle {
     }
 }
 
+/// Floating action on glass. The glass is a plain visual layer and the press feedback comes from
+/// the style: an *interactive* glass effect on a button's label can swallow the tap on iOS 26.
+struct FloatingGlassButtonStyle<S: Shape>: ButtonStyle {
+    var shape: S
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .floatingGlass(in: shape)
+            .contentShape(shape)
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .animation(Motion.micro, value: configuration.isPressed)
+    }
+}
+
 struct CircleButtonStyle: ButtonStyle {
     var fill: Color
     var foreground: Color

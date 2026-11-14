@@ -8,7 +8,7 @@ import SwiftUI
 ///     -UITests                 sample day with a running task
 ///     -UITestsScenario <name>  running | paused | overrun | gap | empty
 enum UITestSupport {
-    static var isActive: Bool { ProcessInfo.processInfo.arguments.contains("-UITests") }
+    static let isActive: Bool = ProcessInfo.processInfo.arguments.contains("-UITests")
 
     /// `-UITestsDark` forces dark appearance for screenshot runs.
     static var forcedColorScheme: ColorScheme? {

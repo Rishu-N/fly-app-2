@@ -65,9 +65,8 @@ struct NowView: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(palette.text1)
                     .frame(width: 58, height: 58)
-                    .floatingGlass(in: Circle(), interactive: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FloatingGlassButtonStyle(shape: Circle()))
             .padding(.trailing, 20)
             .padding(.bottom, 16)
             .accessibilityLabel("Add a block")

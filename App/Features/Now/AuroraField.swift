@@ -20,7 +20,8 @@ struct AuroraField: View {
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
 
     private var animating: Bool {
-        enabled && visible && !reduceMotion && !lowPower && tone != .paused
+        // UI tests: a static field (a 15 fps drift never lets XCUITest see the app as idle).
+        enabled && visible && !reduceMotion && !lowPower && tone != .paused && !UITestSupport.isActive
             && ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue
     }
 

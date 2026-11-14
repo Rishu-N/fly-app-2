@@ -23,7 +23,7 @@ jobs:
 
   ios:
     name: iOS build + UI tests (simulator)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -71,14 +71,37 @@ jobs:
           grep -q "TEST BUILD SUCCEEDED\|BUILD SUCCEEDED" build.log || { echo "---- errors ----"; grep -E "error:" build.log | sort -u | head -80; exit 1; }
 
       - name: Run UI tests (screenshots)
+        timeout-minutes: 30
         run: |
           set -o pipefail
           xcodebuild -project Dayflight.xcodeproj -scheme Dayflight \
             -destination "id=${{ steps.sim.outputs.id }}" \
             -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 420 \
             CODE_SIGNING_ALLOWED=NO \
-            test-without-building 2>&1 | tee test.log | grep -E "Test Case|error:|failed|passed|\*\* " | tail -80
+            test-without-building 2>&1 | tee test.log | grep -E "Test Case|error:|failed|passed|\*\* " | grep -v "UITREE|" | tail -80
+
+      - name: Layout audit (text dump of every screenshot)
+        if: always()
+        run: |
+          # One line per visible element per screen, plus CLIP / OVERLAP / SMALL findings
+          # (see LayoutAudit in UITests). Lets the UI be reviewed without opening the artifact.
+          touch audit.log
+          if [ -f test.log ]; then
+            echo "---- test results (also printed when the test step timed out) ----"
+            grep -E "Test Case .*(passed|failed)|error:|Executed|TEST (SUCCEEDED|FAILED)|Restarting after unexpected exit|timed out|exceeded" test.log | grep -v "UITREE|" | tail -60 || true
+          fi
+          if [ -f test.log ]; then grep -o "UITREE|.*" test.log > audit.log || true; fi
+          if [ ! -s audit.log ] && [ -d TestResults.xcresult ]; then
+            # Older/newer xcodebuild may not echo the runner's stdout; read the console log instead.
+            xcrun xcresulttool get log --type console --path TestResults.xcresult 2>/dev/null | grep -o "UITREE|[^\"]*" > audit.log || true
+          fi
+          awk '!seen[$0]++' audit.log | head -1500
+          echo "---- findings ----"
+          awk '!seen[$0]++' audit.log | grep -E "\|(CLIP|OVERLAP|SMALL)\|" || echo "none"
 
       - name: Export screenshots
         if: always()
